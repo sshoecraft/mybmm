@@ -234,7 +234,7 @@ static int jk_control(void *handle,...) {
 EXPORT_API mybmm_module_t jk_module = {
 	MYBMM_MODTYPE_CELLMON,
 	"jk",
-	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL,
+	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL | MYBMM_BMS_BALANCE_CONTROL,
 	jk_init,			/* Init */
 	jk_new,			/* New */
 	jk_open,			/* Open */
