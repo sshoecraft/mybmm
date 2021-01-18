@@ -55,6 +55,7 @@ typedef struct mybmm_pack mybmm_pack_t;
 #define MYBMM_BMS_BALANCE_CONTROL	0x04
 
 int pack_update(mybmm_pack_t *pp);
+int pack_update_all(mybmm_config_t *,int);
 int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp);
 int pack_init(mybmm_config_t *conf);
 int pack_start_update(mybmm_config_t *conf);

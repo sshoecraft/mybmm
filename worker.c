@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include "worker.h"
 
 #define DEBUG_WORKER 0
@@ -29,8 +30,9 @@ struct worker_info {
 	void *arg;
 };
 
-#define FLAG_BUSY 1
-#define FLAG_DONE 2
+#define FLAG_BUSY 0x01
+#define FLAG_DONE 0x02
+#define FLAG_KILL 0x04
 #define ISBUSY(i) ((i->flags & FLAG_BUSY) != 0)
 #define ISDONE(i) ((i->flags & FLAG_DONE) != 0)
 
@@ -82,10 +84,15 @@ worker_pool_t *worker_create_pool(int count) {
 	return pool;
 }
 
+static void _doterm(int sig) {
+	if (sig == SIGTERM) pthread_exit(0);
+}
+
 /* The actual worker function */
 static void *worker(void *arg) {
 	struct worker_info *wp = arg;
 
+	signal(SIGTERM,_doterm);
 	while(1) {
 		/* Lock this slot */
 		pthread_mutex_lock(&wp->lock);
@@ -121,6 +128,7 @@ static void *worker(void *arg) {
 		pthread_mutex_unlock(&wp->lock);
 	}
 	dprintf("worker[%d]: exiting...\n", wp->slot);
+	signal(SIGTERM,SIG_DFL);
 	pthread_exit(0);
 //	return (void *)0;
 }
@@ -138,17 +146,16 @@ int worker_exec(worker_pool_t *pool, worker_func_t func, void *arg) {
 			wp = &pool->workers[x];
 
 			/* Lock this slot */
-			dprintf("worker[%d]: locking slot...\n",wp->slot);
+//			dprintf("worker[%d]: locking slot...\n",wp->slot);
 			pthread_mutex_lock(&wp->lock);
 
 			/* If busy, unlock and continue on */
-			dprintf("worker[%d]: busy: %d\n", wp->slot, ISBUSY(wp));
+//			dprintf("worker[%d]: busy: %d\n", wp->slot, ISBUSY(wp));
 			if (ISBUSY(wp)) {
-				dprintf("worker[%d]: unlocking slot...\n",wp->slot);
+//				dprintf("worker[%d]: unlocking slot...\n",wp->slot);
 				pthread_mutex_unlock(&wp->lock);
 				continue;
 			}
-//			pthread_mutex_lock(&wp->lock);
 
 			/* Set work item */
 			wp->func = func;
@@ -159,18 +166,18 @@ int worker_exec(worker_pool_t *pool, worker_func_t func, void *arg) {
 
 #if USE_COND
 			/* Set condition */
-			dprintf("worker[%d]: signaling...\n",wp->slot);
+//			dprintf("worker[%d]: signaling...\n",wp->slot);
 			pthread_cond_signal(&wp->cond);
 #endif
 
 			/* Unlock */
-			dprintf("worker[%d]: unlocking...\n",wp->slot);
+//			dprintf("worker[%d]: unlocking...\n",wp->slot);
 			pthread_mutex_unlock(&wp->lock);
 
 			/* Done */
 			return 0;
 		} 
-		dprintf("sleeping...\n");
+//		dprintf("sleeping...\n");
 		usleep(100);
 	} while(!found);
 
@@ -182,9 +189,11 @@ void worker_wait(struct worker_pool *pool, int timeout) {
 	register int x;
 	struct worker_info *wp;
 	int busy;
+	time_t start,t;
 
 	/* Wait for all jobs to finish */
 	dprintf("*** WAITING ON FINISH ****\n");
+	time(&start);
 	while(1) {
 		busy = 0;
 		for(x=0; x < pool->count; x++) {
@@ -196,13 +205,68 @@ void worker_wait(struct worker_pool *pool, int timeout) {
 		}
 //		dprintf("busy: %d\n", busy);
 		if (!busy) break;
+		time(&t);
+//		dprintf("timeout: %d, t: %d, start: %d\n", timeout,(int) t, (int)start);
+		if (timeout > 0 && (t - start) > timeout) break;
 		usleep(100);
-//		sleep(1);
 		continue;
 	}
 }
 
+void worker_killbusy(worker_pool_t *pool) {
+	register int x;
+	struct worker_info *wp;
+
+	/* Send signal to workers */
+	for(x=0; x < pool->count; x++) {
+		wp = &pool->workers[x];
+
+		/* Lock this slot */
+		dprintf("worker[%d]: locking slot...\n",wp->slot);
+		pthread_mutex_lock(&wp->lock);
+
+		/* If busy, unlock and send kill signal */
+		dprintf("worker[%d]: busy: %d\n", wp->slot, ISBUSY(wp));
+		if (ISBUSY(wp)) {
+			dprintf("worker[%d]: unlocking slot...\n",wp->slot);
+			pthread_mutex_unlock(&wp->lock);
+			dprintf("worker[%d]: killing slot...\n",wp->slot);
+			pthread_kill(wp->tid, SIGTERM);
+			wp->flags |= FLAG_KILL;
+			continue;
+		}
+		/* Unlock and go to next */
+		dprintf("worker[%d]: unlocking...\n",wp->slot);
+		pthread_mutex_unlock(&wp->lock);
+	}
+	/* Re-create any slot that was killed */
+	for(x=0; x < pool->count; x++) {
+		wp = &pool->workers[x];
+		if (wp->flags & FLAG_KILL) {
+			dprintf("worker[%d]: locking slot...\n",wp->slot);
+			pthread_mutex_lock(&wp->lock);
+
+			dprintf("worker[%d]: re-creating slot...\n",wp->slot);
+			pthread_create(&wp->tid, NULL, worker, wp);
+
+			dprintf("worker[%d]: clearing flags...\n",wp->slot);
+			wp->flags = 0;
+
+			dprintf("worker[%d]: unlocking...\n",wp->slot);
+			pthread_mutex_unlock(&wp->lock);
+		}
+	}
+}
+
 void worker_kill(worker_pool_t *pool) {
+	register int x;
+
+	/* Send signal to workers */
+	dprintf("killing workers!\n");
+	for(x=0; x < pool->count; x++) pthread_kill(pool->workers[x].tid, SIGTERM);
+}
+
+void worker_cancel(worker_pool_t *pool) {
 	register int x;
 
 	/* Kill the workers - like all good pharoahs */
@@ -228,16 +292,16 @@ void worker_finish(worker_pool_t *pool, int timeout) {
 		pthread_mutex_unlock(&wp->lock);
 	}
 
-	worker_wait(pool,0);
-	worker_kill(pool);
+	worker_wait(pool,timeout);
+	worker_cancel(pool);
 }
 
 int worker_destroy_pool(worker_pool_t *pool,int timeout) {
 	register int x;
 
 	/* Wait for workers to finish */
-//	worker_finish(pool,timeout);
-	worker_kill(pool);
+//	worker_finish(pool,-1);
+	worker_cancel(pool);
 
 	/* Destroy mutexes */
 	dprintf("destroying mutexes...\n");

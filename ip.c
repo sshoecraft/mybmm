@@ -64,7 +64,7 @@ static int ip_open(void *handle) {
 	struct sockaddr_in addr;
 	socklen_t sin_size;
 	struct hostent *he;
-	struct timeval tv;
+//	struct timeval tv;
 	char temp[MYBMM_TARGET_LEN];
 	uint8_t *ptr;
 
@@ -97,6 +97,7 @@ static int ip_open(void *handle) {
 		goto ip_open_error;
 	}
 
+#if 0
 //	dprintf(1,"setting timeout\n");
 	tv.tv_sec = 1;
 	tv.tv_usec = 0;
@@ -104,6 +105,7 @@ static int ip_open(void *handle) {
 		perror("socket_open: setsockopt SO_RCVTIMEO");
 		goto ip_open_error;
 	}
+#endif
 
 	return 0;
 ip_open_error:
@@ -114,7 +116,7 @@ ip_open_error:
 
 static int ip_read(void *handle, ...) {
 	ip_session_t *s = handle;
-	uint8_t *buf,ch;
+	uint8_t *buf;
 	int buflen, bytes, bidx, num;
 	va_list ap;
 	struct timeval tv;
@@ -143,6 +145,7 @@ static int ip_read(void *handle, ...) {
 		bytes = read(s->fd, buf, buflen);
 		dprintf(5,"bytes: %d\n", bytes);
 		if (bytes < 0) {
+			if (errno == EAGAIN) continue;
 			bidx = -1;
 			break;
 		} else if (bytes == 0) {
@@ -155,39 +158,23 @@ static int ip_read(void *handle, ...) {
 		}
 	}
 
-	if (debug >= 5) bindump("serial",buf,bidx);
+	if (debug >= 5) bindump("ip_read",buf,bidx);
 	dprintf(5,"returning: %d\n", bidx);
 	return bidx;
 #else
-	bidx=0;
-	dprintf(5,"reading...\n");
-	while(1) {
-		bytes = read(s->fd, &ch, 1);
-		dprintf(6,"bytes: %d\n", bytes);
-		if (bytes < 0) {
-			if (errno != EAGAIN) bidx = -1;
-			break;
-		} else if (bytes == 0) {
-			break;
-		} else if (bytes > 0) {
-//			dprintf(6,"ch: %02x\n", ch);
-			buf[bidx++] = ch;
-			if (bidx >= buflen) break;
-		}
-//		usleep(100);
-	}
-//	bindump("ip",buf,bidx);
-
-	dprintf(5,"returning: %d\n", bidx);
-	return bidx;
+	bytes = read(s->fd,buf,buflen);
+	dprintf(5,"bytes: %d\n", bytes);
+	return bytes;
 #endif
 }
 
 static int ip_write(void *handle, ...) {
 	ip_session_t *s = handle;
 	uint8_t *buf;
-	int bytes,buflen;
+	int bytes,buflen,num;
 	va_list ap;
+	fd_set wrset;
+	struct timeval tv;
 
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
@@ -196,7 +183,16 @@ static int ip_write(void *handle, ...) {
 
 	dprintf(5,"buf: %p, buflen: %d\n", buf, buflen);
 
-	if (debug >= 3) bindump("TO BMS",buf,buflen);
+	tv.tv_usec = 0;
+	tv.tv_sec = 5;
+
+	FD_ZERO(&wrset);
+	dprintf(5,"Setting fdset...\n");
+	FD_SET(s->fd,&wrset);
+	num = select(s->fd+1,0,&wrset,0,&tv);
+	dprintf(5,"num: %d\n", num);
+	if (!num) return -1;
+	if (debug >= 5) bindump("ip_write",buf,buflen);
 	bytes = write(s->fd,buf,buflen);
 	dprintf(5,"bytes: %d\n", bytes);
 	usleep ((buflen + 25) * 100);
@@ -211,7 +207,7 @@ static int ip_close(void *handle) {
 	return 0;
 }
 
-EXPORT_API mybmm_module_t ip_module = {
+mybmm_module_t ip_module = {
 	MYBMM_MODTYPE_TRANSPORT,
 	"ip",
 	0,

@@ -1,4 +1,6 @@
 
+#include <time.h>
+#include <pthread.h>
 #include "mybmm.h"
 #include "uuid.h"
 #include "worker.h"
@@ -19,6 +21,28 @@ int pack_update(mybmm_pack_t *pp) {
 	dprintf(5,"%s: returning: %d\n", pp->name, r);
 	if (!r) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
 	return r;
+}
+
+int pack_update_all(mybmm_config_t *conf, int wait) {
+	mybmm_pack_t *pp;
+	worker_pool_t *pool;
+
+	pool = worker_create_pool(list_count(conf->packs));
+
+	/* main loop */
+	conf->cell_crit_high = 9.9;
+	dprintf(1,"updating...\n");
+	list_reset(conf->packs);
+	while((pp = list_get_next(conf->packs)) != 0) {
+		mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
+		worker_exec(pool,(worker_func_t)pack_update,pp);
+	}
+	worker_wait(pool,wait);
+	worker_killbusy(pool);
+
+	worker_destroy_pool(pool,-1);
+
+	return 0;
 }
 
 static void *pack_thread(void *arg) {

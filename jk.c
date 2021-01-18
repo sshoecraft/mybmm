@@ -10,15 +10,6 @@ LICENSE file in the root directory of this source tree.
 #include "mybmm.h"
 #include "jk.h"
 
-#if 0
-struct jk_session {
-	mybmm_pack_t *pp;		/* Our pack info */
-	mybmm_module_t *tp;		/* Our transport */
-	void *tp_handle;		/* Our transport handle */
-};
-typedef struct jk_session jk_session_t;
-#endif
-
 #define _getshort(p) (short)(*(p) | (*((p)+1) << 8))
 #define _getint(p) (int)(*(p) | (*((p)+1) << 8) | (*((p)+2) << 16) | (*((p)+3) << 24))
 
@@ -75,10 +66,13 @@ static void _getvolts(mybmm_pack_t *pp, uint8_t *data) {
 	dprintf(4,"cells: %d\n", pp->cells);
 	pp->voltage = ((unsigned short)_getshort(&data[118])) / 1000.0;
 	dprintf(1,"voltage: %.2f\n", pp->voltage);
+//	dprintf(1,"data[126]: %d %d %04x\n", _getshort(&data[126]),(unsigned short)_getshort(&data[126]),(unsigned short)_getshort(&data[126]));
+	pp->current = _getshort(&data[126]) / 1000.0;
+	dprintf(1,"current: %.2f\n", pp->current);
 	pp->ntemps = 2;
 	pp->temps[0] = ((unsigned short)_getshort(&data[130])) / 10.0;
 	pp->temps[1] = ((unsigned short)_getshort(&data[132])) / 10.0;
-	/* Dont include mosfet temp? */
+	/* Dont include mosfet temp ... ? */
 //	pp->temps[2] = ((unsigned short)_getshort(&data[134])) / 10.0;
 }
 
@@ -183,6 +177,7 @@ static int jk_read(void *handle,...) {
 	uint8_t data[2048];
 	int bytes,r,retries;
 
+	/* Have to getInfo before can getCellInfo ... */
 	retries=5;
 	while(retries--) {
 		bytes = s->tp->write(s->tp_handle,getInfo,sizeof(getInfo));
@@ -231,7 +226,7 @@ static int jk_control(void *handle,...) {
 	return 0;
 }
 
-EXPORT_API mybmm_module_t jk_module = {
+mybmm_module_t jk_module = {
 	MYBMM_MODTYPE_CELLMON,
 	"jk",
 	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL | MYBMM_BMS_BALANCE_CONTROL,

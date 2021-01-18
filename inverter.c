@@ -2,7 +2,7 @@
 #include "mybmm.h"
 #include "uuid.h"
 
-static int inverter_read(mybmm_inverter_t *inv) {
+int inverter_read(mybmm_inverter_t *inv) {
 	int r;
 
 	mybmm_clear_state(inv,MYBMM_INVERTER_STATE_UPDATED);
@@ -156,7 +156,6 @@ int inverter_start_update(mybmm_config_t *conf) {
 }
 
 
-#if 0
 int inverter_write(mybmm_inverter_t *inv) {
 	if (inv->open(inv->handle)) return 1;
 	if (inv->write(inv->handle) < 0) {
@@ -166,4 +165,3 @@ int inverter_write(mybmm_inverter_t *inv) {
 	inv->close(inv->handle);
 	return 0;
 }
-#endif

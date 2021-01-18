@@ -16,6 +16,8 @@ struct jk_info {
 	char uptime[24];
 	char device[32];
 	char pass[8];
+	float voltage;
+	float current;
 	unsigned short protectbits;
 	unsigned short state;
 	unsigned char strings;			/* the number of battery strings */

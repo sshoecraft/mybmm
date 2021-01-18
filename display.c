@@ -1,6 +1,8 @@
 
 #include "mybmm.h"
 
+#define COLUMN_WIDTH 5
+
 void display(struct mybmm_config *conf) {
 #if 0
 	float *temps,*values,*summ,*bsum;
@@ -20,6 +22,7 @@ void display(struct mybmm_config *conf) {
 	char *tlabels[NBSUM] = { "Curr","Volt" };
 	mybmm_inverter_t *inv;
 	mybmm_pack_t *pp;
+	char format[16];
 
 	cells = 0;
 	max_temps = 0;
@@ -133,27 +136,35 @@ void display(struct mybmm_config *conf) {
 	printf("\n");
 #endif
 
-#define CFMT "%-5.5s  "
+	sprintf(format,"%%-%d.%ds ",COLUMN_WIDTH,COLUMN_WIDTH);
 	/* Header */
-	printf(CFMT,"");
+	printf(format,"");
 	x = 1;
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
-		sprintf(str," P%02d",x++);
-		printf(CFMT,str);
+		if (strlen(pp->name) > COLUMN_WIDTH) {
+			char temp[32];
+			int i;
+
+			i = strlen(pp->name) - COLUMN_WIDTH;
+			strcpy(temp,&pp->name[i]);
+			printf(format,temp);
+		} else {
+			printf(format,pp->name);
+		}
 	}
 	printf("\n");
 	/* Lines */
-	printf(CFMT,"");
+	printf(format,"");
 	list_reset(conf->packs);
-	while((pp = list_get_next(conf->packs)) != 0) printf(CFMT,"----------------------");
+	while((pp = list_get_next(conf->packs)) != 0) printf(format,"----------------------");
 	printf("\n");
 
 #define FTEMP(v) ( ( ( (float)(v) * 9.0 ) / 5.0) + 32.0)
 	/* Temps */
 	for(y=0; y < max_temps; y++) {
 		sprintf(str,"T%d",y+1);
-		printf(CFMT,str);
+		printf(format,str);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0
 			fptr = temps + (x*2);
@@ -162,7 +173,7 @@ void display(struct mybmm_config *conf) {
 //			sprintf(str,"%.1f",FTEMP(temps[y][x]));
 			sprintf(str,"%.1f",temps[y][x]);
 #endif
-			printf(CFMT,str);
+			printf(format,str);
 		}
 		printf("\n");
 	}
@@ -171,7 +182,7 @@ void display(struct mybmm_config *conf) {
 	/* Cell values */
 	for(y=0; y < cells; y++) {
 		sprintf(str,"C%02d",y+1);
-		printf(CFMT,str);
+		printf(format,str);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0
 			fptr = values + ((x*cells) + y);
@@ -179,7 +190,7 @@ void display(struct mybmm_config *conf) {
 #else
 			sprintf(str,"%.3f",values[y][x]);
 #endif
-			printf(CFMT,str);
+			printf(format,str);
 		}
 		printf("\n");
 	}
@@ -187,7 +198,7 @@ void display(struct mybmm_config *conf) {
 
 	/* Summ values */
 	for(y=0; y < NSUMM; y++) {
-		printf(CFMT,slabels[y]);
+		printf(format,slabels[y]);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0
 			fptr = summ + (x*NSUMM);
@@ -195,7 +206,7 @@ void display(struct mybmm_config *conf) {
 #else
 			sprintf(str,"%.3f",summ[y][x]);
 #endif
-			printf(CFMT,str);
+			printf(format,str);
 		}
 		printf("\n");
 	}
@@ -203,7 +214,7 @@ void display(struct mybmm_config *conf) {
 
 	/* Current/Total */
 	for(y=0; y < NBSUM; y++) {
-		printf(CFMT,tlabels[y]);
+		printf(format,tlabels[y]);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0
 			fptr = bsum + (x*NBSUM);
@@ -211,7 +222,7 @@ void display(struct mybmm_config *conf) {
 #else
 			sprintf(str,"%.3f",bsum[y][x]);
 #endif
-			printf(CFMT,str);
+			printf(format,str);
 		}
 		printf("\n");
 	}

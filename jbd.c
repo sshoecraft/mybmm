@@ -324,6 +324,19 @@ static int jbd_get_pack(jbd_session_t *s) {
 	/* Balance */
 	pp->balancebits = _getshort(&data[12]);
 	pp->balancebits |= _getshort(&data[14]) << 16;
+#ifdef DEBUG
+	{
+		char bits[40];
+		unsigned short mask = 1;
+		i = 0;
+		while(mask) {
+			bits[i++] = ((pp->balancebits & mask) != 0 ? '1' : '0');
+			mask <<= 1;
+		}
+		bits[i] = 0;
+		dprintf(1,"balancebits: %s\n",bits);
+	}
+#endif
 
 	/* Protectbits */
 	jbd_get_protect(&prot,_getshort(&data[16]));
@@ -435,7 +448,7 @@ static int jbd_control(void *handle,...) {
 	return 0;
 }
 
-EXPORT_API mybmm_module_t jbd_module = {
+mybmm_module_t jbd_module = {
 	MYBMM_MODTYPE_CELLMON,
 	"jbd",
 	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL | MYBMM_BMS_BALANCE_CONTROL,

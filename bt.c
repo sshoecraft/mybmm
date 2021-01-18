@@ -63,7 +63,7 @@ static int open_bt(bt_session_t *bt) {
 	gattlib_write_char_by_handle(bt->c, 0x0026, &on, sizeof(on));
 	gattlib_register_notification(bt->c, notification_cb, bt);
 	if (gattlib_notification_start(bt->c, &bt->uuid)) {
-		fprintf(stderr, "Fail to start notification.\n");
+		dprintf(1,"error: failed to start bluetooth notification.\n");
 		gattlib_disconnect(bt->c);
 		return 1;
 	}
@@ -125,12 +125,12 @@ static int bt_read(void *handle,...) {
 	int buflen, len, retries;
 	va_list ap;
 
-	if (!bt->c) bt_open(handle);
-
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
 	buflen = va_arg(ap, int);
 	va_end(ap);
+
+	dprintf(1,"buf: %p, buflen: %d\n", buf, buflen);
 
 	retries=3;
 	while(1) {
@@ -147,11 +147,6 @@ static int bt_read(void *handle,...) {
 		break;
 	}
 
-#if 0
-	dprintf(1,"cmd: %p, cmdlen: %d, buf: %p, buflen: %d\n", cmd, cmdlen, buf, buflen);
-	if (get_bt(bt, cmd, cmdlen)) return -1;
-	dprintf(1,"buflen: %d, len: %d\n", buflen,len);
-#endif
 	return len;
 }
 
@@ -176,16 +171,6 @@ static int bt_write(void *handle,...) {
 	dprintf(1,"bt->c: %p\n", bt->c);
 	if (gattlib_write_char_by_uuid(bt->c, &bt->uuid, buf, buflen)) return -1;
 
-#if 0
-	retries=3;
-	do {
-		dprintf(1,"retries: %d\n", retries);
-		sleep(1);
-	} while(retries-- && bt->cbcnt == 0);
-	if (retries < 1) return 1;
-//	bindump("get_bt",bt->data,bt->len);
-	return len;
-#endif
 	return buflen;
 }
 
@@ -193,8 +178,10 @@ static int bt_write(void *handle,...) {
 static int bt_close(void *handle) {
 	bt_session_t *bt = handle;
 
-//	gattlib_notification_stop(bt->c, &bt->uuid);
-        gattlib_disconnect(bt->c);
+	if (bt->c) {
+//		gattlib_notification_stop(bt->c, &bt->uuid);
+		gattlib_disconnect(bt->c);
+	}
 	return 0;
 }
 

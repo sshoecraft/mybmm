@@ -21,7 +21,7 @@ int read_config(mybmm_config_t *conf) {
 		{ "mybmm", "cell_crit_high", "Critical cell high voltage", DATA_TYPE_FLOAT, &conf->cell_crit_high, 0, "-1" },
 		{ "mybmm", "c_rate", "Current rate", DATA_TYPE_FLOAT, &conf->c_rate, 0, "-1" },
 		{ "mybmm", "database", "Database Connection", DATA_TYPE_STRING, &conf->db_name, sizeof(conf->db_name), "" },
-		{ "mybmm", "user_soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
+		{ "mybmm", "force_soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
 		CFG_PROCTAB_END
 	};
 
