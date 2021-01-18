@@ -650,6 +650,7 @@ static int jbd_std_get_info(jbd_session_t *s, jbd_info_t *info) {
 	/* Temps */
 #define CTEMP(v) ( (v - 2731) / 10 )
 	for(i=0; i < info->probes; i++) {
+		dprintf(1,"temp[%d]: %d\n",i,_getshort(&data[23+(i*2)]));
 		info->temps[i] = CTEMP((float)_getshort(&data[23+(i*2)]));
 	}
 

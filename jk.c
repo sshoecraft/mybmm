@@ -73,6 +73,13 @@ static void _getvolts(mybmm_pack_t *pp, uint8_t *data) {
 	}
 	pp->cells = j;
 	dprintf(4,"cells: %d\n", pp->cells);
+	pp->voltage = ((unsigned short)_getshort(&data[118])) / 1000.0;
+	dprintf(1,"voltage: %.2f\n", pp->voltage);
+	pp->ntemps = 2;
+	pp->temps[0] = ((unsigned short)_getshort(&data[130])) / 10.0;
+	pp->temps[1] = ((unsigned short)_getshort(&data[132])) / 10.0;
+	/* Dont include mosfet temp? */
+//	pp->temps[2] = ((unsigned short)_getshort(&data[134])) / 10.0;
 }
 
 #if 0
@@ -162,6 +169,7 @@ static int getdata(mybmm_pack_t *pp, uint8_t *data, int bytes) {
 				j = 0;
 			}
 		}
+		if (r & GOT_VOLT) break;
 	}
 	dprintf(4,"returning: %d\n", r);
 	return r;
@@ -176,20 +184,24 @@ static int jk_read(void *handle,...) {
 	int bytes,r,retries;
 
 	retries=5;
-	s->tp->write(s->tp_handle,getInfo,sizeof(getInfo));
 	while(retries--) {
-		bytes = s->tp->read(s->tp_handle,data,sizeof(data));
-//		bindump("data",data,bytes);
+		bytes = s->tp->write(s->tp_handle,getInfo,sizeof(getInfo));
 		dprintf(4,"bytes: %d\n", bytes);
+		if (bytes < 0) return -1;
+		bytes = s->tp->read(s->tp_handle,data,sizeof(data));
+		dprintf(4,"bytes: %d\n", bytes);
+		if (bytes < 0) return -1;
 		r = getdata(s->pp,data,bytes);
-		if ((r & GOT_INFO) == 0) break;
+		if (r & GOT_INFO) break;
 		sleep(1);
 	}
 	retries=5;
-	s->tp->write(s->tp_handle,getCellInfo,sizeof(getCellInfo));
+	bytes = s->tp->write(s->tp_handle,getCellInfo,sizeof(getCellInfo));
+	dprintf(4,"bytes: %d\n", bytes);
+	if (bytes < 0) return -1;
 	while(retries--) {
 		bytes = s->tp->read(s->tp_handle,data,sizeof(data));
-//		bindump("data",data,bytes);
+		dprintf(4,"bytes: %d\n", bytes);
 		r = getdata(s->pp,data,bytes);
 		if (r & GOT_VOLT) break;
 	}

@@ -82,6 +82,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 	}
 
 	/* Load the transport */
+	if (!strlen(pp->transport)) return 0;
 	tp = mybmm_load_module(conf,pp->transport,MYBMM_MODTYPE_TRANSPORT);
 	if (!tp) {
 		fprintf(stderr,"unable to load TRANSPORT module %s for %s, aborting\n",pp->transport,packname);

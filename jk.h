@@ -20,6 +20,7 @@ struct jk_info {
 	unsigned short state;
 	unsigned char strings;			/* the number of battery strings */
 	float cellvolt[32];			/* Cell voltages */
+	float cellres[32];			/* Cell resistances */
 	float cell_total;			/* sum of all cells */
 	float cell_min;				/* lowest cell value */
 	float cell_max;				/* highest cell value */
