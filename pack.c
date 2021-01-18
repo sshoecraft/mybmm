@@ -3,10 +3,10 @@
 #include "uuid.h"
 #include "worker.h"
 
-static int pack_update(mybmm_pack_t *pp) {
+int pack_update(mybmm_pack_t *pp) {
 	int r;
 
-//	dprintf(3,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
+	dprintf(1,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
 	dprintf(5,"%s: opening...\n", pp->name);
 	if (pp->open(pp->handle)) {
 		dprintf(1,"%s: open error\n",pp->name);
@@ -50,7 +50,7 @@ static void *pack_thread(void *arg) {
 	return 0;
 }
 
-static int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
+int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
         struct cfg_proctab packtab[] = {
 		{ packname, "name", "Pack name", DATA_TYPE_STRING,&pp->name,sizeof(pp->name), 0 },
 		{ packname, "uuid", "Pack UUID", DATA_TYPE_STRING,&pp->uuid,sizeof(pp->uuid), 0 },
@@ -123,7 +123,6 @@ int pack_init(mybmm_config_t *conf) {
 	mybmm_pack_t *pp;
 	char name[32];
 	int i;
-	pthread_attr_t attr;
 
 	/* Read pack info */
 	for(i=1; i < MYBMM_MAX_PACKS; i++) {
@@ -144,6 +143,13 @@ int pack_init(mybmm_config_t *conf) {
 
 	}
 
+	dprintf(3,"done!\n");
+	return 0;
+}
+
+int pack_start_update(mybmm_config_t *conf) {
+	pthread_attr_t attr;
+
 	/* Create a detached thread */
 	dprintf(3,"Creating thread...\n");
 	if (pthread_attr_init(&attr)) {
@@ -158,8 +164,6 @@ int pack_init(mybmm_config_t *conf) {
 		dprintf(0,"pthread_create: %s\n",strerror(errno));
 		return 1;
 	}
-
-	dprintf(3,"done!\n");
 	return 0;
 }
 

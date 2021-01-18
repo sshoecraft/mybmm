@@ -17,7 +17,7 @@ void display(struct mybmm_config *conf) {
 	int x,y,cells,max_temps,pack_reported;
 	char str[32],*p;
 	char *slabels[NSUMM] = { "Min","Max","Avg","Diff" };
-	char *tlabels[NBSUM] = { "Current","Voltage" };
+	char *tlabels[NBSUM] = { "Curr","Volt" };
 	mybmm_inverter_t *inv;
 	mybmm_pack_t *pp;
 
@@ -46,12 +46,11 @@ void display(struct mybmm_config *conf) {
 	memset(bsum,0,sizeof(bsum));
 #endif
 	x = 0;
-	min_cap = 9999999.99;
 	pack_reported = 0;
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
 		if (!mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) {
-			cell_min = cell_max = cell_total = 0;
+			cell_min = cell_max = cell_avg = cell_total = 0;
 		} else {
 			cell_min = conf->cell_crit_high;
 			cell_max = 0.0;
@@ -77,9 +76,10 @@ void display(struct mybmm_config *conf) {
 			for(y=0; y < pp->ntemps; y++) *fptr++ = pp->temps[y];
 #endif
 			for(y=0; y < pp->ntemps; y++) temps[y][x] = pp->temps[y];
+			cell_avg = cell_total / pp->cells;
 		}
 		cell_diff = cell_max - cell_min;
-		cell_avg = cell_total / conf->cells;
+		dprintf(1,"conf->cells: %d\n", conf->cells);
 		dprintf(1,"cells: total: %.3f, min: %.3f, max: %.3f, diff: %.3f, avg: %.3f\n",
 			cell_total, cell_min, cell_max, cell_diff, cell_avg);
 #if 0
@@ -122,20 +122,26 @@ void display(struct mybmm_config *conf) {
 		if (strcmp(p,"Error") != 0) {
 			printf("Charge voltage: %.1f, Discharge voltage: %.1f\n", conf->charge_voltage, conf->discharge_voltage);
 		}
-	} else {
-		dprintf(0,"\nInverter: None\n");
+//	} else {
+//		dprintf(0,"\nInverter: None\n");
 	}
+#if 0
 	conf->capacity = (conf->user_capacity == -1 ? min_cap * pack_reported++ : conf->user_capacity);
 	printf("Capacity: %.1f\n", conf->capacity);
 	conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
 	printf("kWh: %.1f\n", conf->kwh);
 	printf("\n");
+#endif
 
-#define CFMT "%-7.7s  "
+#define CFMT "%-5.5s  "
 	/* Header */
 	printf(CFMT,"");
+	x = 1;
 	list_reset(conf->packs);
-	while((pp = list_get_next(conf->packs)) != 0) printf(CFMT,pp->name);
+	while((pp = list_get_next(conf->packs)) != 0) {
+		sprintf(str," P%02d",x++);
+		printf(CFMT,str);
+	}
 	printf("\n");
 	/* Lines */
 	printf(CFMT,"");
@@ -146,7 +152,7 @@ void display(struct mybmm_config *conf) {
 #define FTEMP(v) ( ( ( (float)(v) * 9.0 ) / 5.0) + 32.0)
 	/* Temps */
 	for(y=0; y < max_temps; y++) {
-		sprintf(str,"Temp %2d",y+1);
+		sprintf(str,"T%d",y+1);
 		printf(CFMT,str);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0
@@ -164,7 +170,7 @@ void display(struct mybmm_config *conf) {
 
 	/* Cell values */
 	for(y=0; y < cells; y++) {
-		sprintf(str,"Cell %02d",y+1);
+		sprintf(str,"C%02d",y+1);
 		printf(CFMT,str);
 		for(x=0; x < list_count(conf->packs); x++) {
 #if 0

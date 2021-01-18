@@ -46,15 +46,15 @@ int read_config(mybmm_config_t *conf) {
 	case BATTERY_CHEM_LITHIUM:
 		dprintf(1,"battery_chem: LITHIUM\n");
 		if (conf->cell_low < 0) conf->cell_low = 3.2;
-		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.8;
-		if (conf->cell_high < 0) conf->cell_high = 4.05;
+		if (conf->cell_crit_low < 0) conf->cell_crit_low = 3.0;
+		if (conf->cell_high < 0) conf->cell_high = 4.08;
 		if (conf->cell_crit_high < 0) conf->cell_crit_high = 4.2;
 		if (conf->c_rate < 0) conf->c_rate = .5;
 		break;
 	case BATTERY_CHEM_LIFEPO4:
 		dprintf(1,"battery_chem: LITHIUM\n");
 		if (conf->cell_low < 0) conf->cell_low = 3.0;
-		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.5;
+		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.8;
 		if (conf->cell_high < 0) conf->cell_high = 3.4;
 		if (conf->cell_crit_high < 0) conf->cell_crit_high = 3.65;
 		if (conf->c_rate < 0) conf->c_rate = .4;

@@ -81,7 +81,9 @@ char *strele(int num,char *delimiter,char *string) {
 	register char *dest, qc;
 	register int count;
 
-	dprintf(7,"Element: %d, delimiter: %s, string: %s\n",num,delimiter,string);
+#ifdef DEBUG_STRELE
+	printf("Element: %d, delimiter: %s, string: %s\n",num,delimiter,string);
+#endif
 
 	eptr = string;
 	dptr = delimiter;
@@ -89,7 +91,9 @@ char *strele(int num,char *delimiter,char *string) {
 	count = 0;
 	qc = 0;
 	for(src = string; *src != '\0'; src++) {
-		dprintf(7,"src: %d, qc: %d\n", *src, qc);
+#ifdef DEBUG_STRELE
+		printf("src: %d, qc: %d\n", *src, qc);
+#endif
 		if (qc) {
 			if (*src == qc) qc = 0;
 			continue;
@@ -100,7 +104,7 @@ char *strele(int num,char *delimiter,char *string) {
 			}
 		}
 		if (isspace(*src)) *src = 32;
-#if DEBUG_STRELE
+#ifdef DEBUG_STRELE
 		if (*src)
 			printf("src: %c == ",*src);
 		else
@@ -115,7 +119,7 @@ char *strele(int num,char *delimiter,char *string) {
 		if (*src == *dptr) {
 			cptr = src+1;
 			dptr++;
-#if DEBUG_STRELE
+#ifdef DEBUG_STRELE
 			if (*cptr != '\0')
 				printf("cptr: %c == ",*cptr);
 			else
@@ -128,7 +132,7 @@ char *strele(int num,char *delimiter,char *string) {
 			while(*cptr == *dptr && *cptr != '\0' && *dptr != '\0') {
 				cptr++;
 				dptr++;
-#if DEBUG_STRELE
+#ifdef DEBUG_STRELE
 				if (*cptr != '\0')
 					printf("cptr: %c == ",*cptr);
 				else
@@ -139,7 +143,9 @@ char *strele(int num,char *delimiter,char *string) {
 					printf("dptr: (null)\n");
 #endif
 				if (*dptr == '\0' || *cptr == '\0') {
-					dprintf(7,"Breaking...\n");
+#ifdef DEBUG_STRELE
+					printf("Breaking...\n");
+#endif
 					break;
 				}
 /*
@@ -149,7 +155,7 @@ char *strele(int num,char *delimiter,char *string) {
 				if (*cptr == '\0') break;
 */
 			}
-#if DEBUG_STRELE
+#ifdef DEBUG_STRELE
 			if (*cptr != '\0')
 				printf("cptr: %c == ",*cptr);
 			else
@@ -160,29 +166,39 @@ char *strele(int num,char *delimiter,char *string) {
 				printf("dptr: (null)\n");
 #endif
 			if (*dptr == '\0') {
-				dprintf(7,"Count: %d, num: %d\n",count,num);
+#ifdef DEBUG_STRELE
+				printf("Count: %d, num: %d\n",count,num);
+#endif
 				if (count == num) break;
 				if (cptr > src+1) src = cptr-1;
 				eptr = src+1;
 				count++;
 //				printf("eptr[0]: %c\n", eptr[0]);
 				if (*eptr == '\"' || *eptr == '\'') eptr++;
-				dprintf(7,"eptr: %s, src: %s\n",eptr,src+1);
+#ifdef DEBUG_STRELE
+				printf("eptr: %s, src: %s\n",eptr,src+1);
+#endif
 			}
 			dptr = delimiter;
 		}
 	}
-	dprintf(7,"Count: %d, num: %d\n",count,num);
+#ifdef DEBUG_STRELE
+	printf("Count: %d, num: %d\n",count,num);
+#endif
 	if (count == num) {
-		dprintf(7,"eptr: %s\n",eptr);
-		dprintf(7,"src: %s\n",src);
+#ifdef DEBUG_STRELE
+		printf("eptr: %s\n",eptr);
+		printf("src: %s\n",src);
+#endif
 		while(eptr < src) {
 			if (*eptr == '\"' || *eptr == '\'') break;
 			*dest++ = *eptr++;
 		}
 	}
 	*dest = '\0';
-	dprintf(7,"Returning: %s\n",return_info);
+#ifdef DEBUG_STRELE
+	printf("Returning: %s\n",return_info);
+#endif
 	return(return_info);
 }
 

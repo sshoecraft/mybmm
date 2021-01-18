@@ -112,11 +112,13 @@ typedef struct jbd_info jbd_info_t;
 #define JBD_REG_DSGOCDELAY	0x3F		/* low: release, high: delay */
 #define JBD_REG_GPSOFF		0x40
 #define JBD_REG_GPSOFFTIME	0x41
-#define JBD_REG_IVOLCAP95	0x42
-#define JBD_REG_IVOLCAP75	0x43
-#define JBD_REG_IVOLCAP50	0x44
-#define JBD_REG_IVOLCAP30	0x45
-#define JBD_REG_IVOLCAP10	0x46
+#define JBD_REG_VOLCAP90	0x42
+#define JBD_REG_VOLCAP70	0x43
+#define JBD_REG_VOLCAP50	0x44
+#define JBD_REG_VOLCAP30	0x45
+#define JBD_REG_VOLCAP10	0x46
+#define JBD_REG_VOLCAP10	0x46
+#define JBD_REG_VOLCAP100	0x47
 
 #define JBD_REG_MFGNAME 	0xA0
 #define JBD_REG_MODEL   	0xA1

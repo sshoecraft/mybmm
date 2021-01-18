@@ -1,0 +1,28 @@
+
+init logging
+find config file
+read config
+init db
+init inverter
+init packs
+
+read inverter
+read all packs
+all packs have control?
+initial soc calcuation
+
+start inverter update
+start pack update
+
+get mode from db
+  if not set, mode = discharge
+loop
+calculate soc
+check cell values
+  take action
+if soc < 25
+	turn off discharge
+	lower charge current
+
+charging/discharging?
+

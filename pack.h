@@ -44,7 +44,6 @@ struct mybmm_pack {
 	mybmm_module_read_t read;	/* BMS Read */
 	mybmm_module_close_t close;	/* BMS Close */
 	mybmm_module_control_t control;	/* BMS Control */
-//	mybmm_config_t *conf;		/* Back pointer */
 };
 typedef struct mybmm_pack mybmm_pack_t;
 
@@ -54,6 +53,10 @@ typedef struct mybmm_pack mybmm_pack_t;
 #define MYBMM_BMS_CHARGE_CONTROL	0x01
 #define MYBMM_BMS_DISCHARGE_CONTROL	0x02
 
+int pack_update(mybmm_pack_t *pp);
+int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp);
 int pack_init(mybmm_config_t *conf);
+int pack_start_update(mybmm_config_t *conf);
+int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp);
 
 #endif

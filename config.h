@@ -21,6 +21,7 @@ enum BATTERY_CHEMS {
 
 struct mybmm_config {
 	char *filename;			/* Config filename */
+	void *logfp;			/* Log filehandle */
 	char db_name[32];		/* DB Name */
 	void *dlsym_handle;		/* Image handle */
 	list modules;			/* Modules */

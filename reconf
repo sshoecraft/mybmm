@@ -1,2 +1,3 @@
 #!/bin/bash
-kill -USR1 $(pidof mybmm)
+pid=$(pidof mybmm)
+test -n "$pid" && kill -USR1 $pid

@@ -1,6 +1,7 @@
 #!/bin/bash
 while true
 do
-	ls /proc/$(pidof mybmm)/fd/* | wc -l
+	pid="$(pidof mybmm)"
+	test -n "$pid" && ls /proc/$pid/fd/* | wc -l
 	sleep 30
 done

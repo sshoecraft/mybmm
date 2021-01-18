@@ -22,7 +22,7 @@ struct bt_session {
 	gatt_connection_t *c;
 	uuid_t uuid;
 	char target[32];
-	char data[2048];
+	char data[4096];
 	int len;
 	int cbcnt;
 };
@@ -32,12 +32,13 @@ static void notification_cb(const uuid_t* uuid, const uint8_t* data, size_t data
 	bt_session_t *bt = (bt_session_t *) user_data;
 
 	/* Really should check for overrun here */
-	dprintf(1,"data: %p, data_length: %d\n", data, data_length);
+	dprintf(4,"bt->len: %d, data: %p, data_length: %d\n", bt->len, data, data_length);
+	if (bt->len + data_length > sizeof(bt->data)) data_length = sizeof(bt->data) - bt->len;
 	memcpy(&bt->data[bt->len],data,data_length);
 	bt->len+=data_length;
-	dprintf(1,"bt->len: %d\n", bt->len);
+	dprintf(4,"bt->len: %d\n", bt->len);
 	bt->cbcnt++;
-	dprintf(1,"bt->cbcnt: %d\n", bt->cbcnt);
+	dprintf(4,"bt->cbcnt: %d\n", bt->cbcnt);
 }
 
 static int open_bt(bt_session_t *bt) {
@@ -55,6 +56,7 @@ static int open_bt(bt_session_t *bt) {
 		fprintf(stderr, "Fail to connect to the bluetooth device.\n");
 		return 1;
 	}
+	dprintf(1,"bt->c: %p\n", bt->c);
 
 	/* yes, its hardcoded. deal. */
 	dprintf(1,"reg not\n");
@@ -65,6 +67,7 @@ static int open_bt(bt_session_t *bt) {
 		gattlib_disconnect(bt->c);
 		return 1;
 	}
+	dprintf(1,"bt->c: %p\n", bt->c);
 
 	return 0;
 }
@@ -140,6 +143,7 @@ static int bt_read(void *handle,...) {
 		len = (bt->len > buflen ? buflen : bt->len);
 		dprintf(1,"len: %d\n", len);
 		memcpy(buf,bt->data,len);
+		bt->len = 0;
 		break;
 	}
 
@@ -157,7 +161,8 @@ static int bt_write(void *handle,...) {
 	int buflen;
 	va_list ap;
 
-	if (!bt->c) bt_open(handle);
+	dprintf(1,"bt: %p\n", bt);
+	dprintf(1,"bt->c: %p\n", bt->c);
 
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
@@ -168,6 +173,7 @@ static int bt_write(void *handle,...) {
 
 	bt->len = 0;
 	bt->cbcnt = 0;
+	dprintf(1,"bt->c: %p\n", bt->c);
 	if (gattlib_write_char_by_uuid(bt->c, &bt->uuid, buf, buflen)) return -1;
 
 #if 0

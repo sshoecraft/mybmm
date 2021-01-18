@@ -13,17 +13,7 @@
 #include "utils.h"
 #include "list.h"
 #include "worker.h"
-
-#ifdef dprintf
-#undef dprintf
-#endif
-
-extern int debug;
-#ifdef DEBUG
-#define dprintf(level, format, args...) { if (debug >= level) printf("%s(%d): " format,__FUNCTION__,__LINE__, ## args); }
-#else
-#define dprintf(level,format,args...) /* noop */
-#endif
+#include "debug.h"
 
 //typedef unsigned char uint8_t;
 
@@ -31,8 +21,9 @@ extern int debug;
 #define MYBMM_MAX_PACKS		32
 #define MYBMM_PACK_NAME_LEN	32
 #define MYBMM_PACK_TYPE_LEN	8
-#define MYBMM_INSTANCE_NAME_LEN	32
-#define MYBMM_TRANSPORT_NAME_LEN 8
+#define MYBMM_MODULE_NAME_LEN	32
+//#define MYBMM_INSTANCE_NAME_LEN	32
+//#define MYBMM_TRANSPORT_NAME_LEN 8
 
 /* Forward dec */
 #if 0
