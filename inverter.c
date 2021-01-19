@@ -5,6 +5,7 @@
 int inverter_read(mybmm_inverter_t *inv) {
 	int r;
 
+	if (!inv) return 1;
 	mybmm_clear_state(inv,MYBMM_INVERTER_STATE_UPDATED);
 
 //	dprintf(3,"inv: name: %s, type: %s, transport: %s\n", inv->name, inv->type, inv->transport);
@@ -20,6 +21,17 @@ int inverter_read(mybmm_inverter_t *inv) {
 	dprintf(5,"%s: returning: %d\n", inv->name, r);
 	if (!r) mybmm_set_state(inv,MYBMM_INVERTER_STATE_UPDATED);
 	return r;
+}
+
+int inverter_write(mybmm_inverter_t *inv) {
+	if (!inv) return 1;
+	if (inv->open(inv->handle)) return 1;
+	if (inv->write(inv->handle) < 0) {
+		dprintf(1,"error writing to %s\n", inv->name);
+		return 1;
+	}
+	inv->close(inv->handle);
+	return 0;
 }
 
 static void *inverter_thread(void *arg) {
@@ -129,7 +141,7 @@ int inverter_init(mybmm_config_t *conf) {
 	conf->inverter = inv;
 
 	/* Do an initial update */
-	inverter_read(inv);
+//	inverter_read(inv);
 
 	dprintf(3,"done!\n");
 	return 0;
@@ -152,16 +164,5 @@ int inverter_start_update(mybmm_config_t *conf) {
 		dprintf(0,"pthread_create: %s\n",strerror(errno));
 		return 1;
 	}
-	return 0;
-}
-
-
-int inverter_write(mybmm_inverter_t *inv) {
-	if (inv->open(inv->handle)) return 1;
-	if (inv->write(inv->handle) < 0) {
-		dprintf(1,"error writing to %s\n", inv->name);
-		return 1;
-	}
-	inv->close(inv->handle);
 	return 0;
 }

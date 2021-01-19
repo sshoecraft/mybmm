@@ -12,6 +12,11 @@ struct mybmm_inverter {
 	char target[32];		/* Device/Interface/Address */
 	char params[64];		/* Inverter-specific params */
 	unsigned char state;		/* Inverter State */
+	float battery_voltage;		/* Really? I need to comment this? */
+	float battery_current;		/* batt watts */
+	float grid_current;		/* Grid/Gen watts */
+	float load_current;		/* loads watts */
+	float pv_current;		/* pv/wind/caes watts */
 	void *handle;			/* Inverter Handle */
 	mybmm_module_open_t open;	/* Inverter Open */
 	mybmm_module_control_t control;	/* Inverter Control */
@@ -36,5 +41,7 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 
 int inverter_init(mybmm_config_t *conf);
 int inverter_start_update(mybmm_config_t *conf);
+int inverter_read(mybmm_inverter_t *inv);
+int inverter_write(mybmm_inverter_t *inv);
 
 #endif /* __MYBMM_INVERTER_H */

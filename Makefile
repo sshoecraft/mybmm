@@ -18,12 +18,12 @@ all: $(PROG)
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
-$(OBJS): Makefile
+#$(OBJS): Makefile
 
 gendb_bms.c:
 	gendb -f siu -i id -n name bms
 
-#include ../Makefile.dep
+include Makefile.dep
 
 debug: $(PROG)
 	gdb $(PROG)

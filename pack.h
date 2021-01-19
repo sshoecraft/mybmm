@@ -2,8 +2,9 @@
 #ifndef __PACK_H
 #define __PACK_H
 
-#define MYBMM_MAX_TEMPS 8
-#define MYBMM_MAX_CELLS 32
+#define MYBMM_PACK_NAME_LEN 32
+#define MYBMM_PACK_MAX_TEMPS 8
+#define MYBMM_PACK_MAX_CELLS 32
 
 struct battery_cell {
 	float voltage;
@@ -33,11 +34,11 @@ struct mybmm_pack {
 	float current;			/* Pack current */
 	int status;			/* Pack status, updated by BMS */
 	int ntemps;			/* Number of temps */
-	float temps[MYBMM_MAX_TEMPS];	/* Temp values */
+	float temps[MYBMM_PACK_MAX_TEMPS];	/* Temp values */
 	float temp;			/* Temp, in C */
 	int cells;			/* Number of cells, updated by BMS */
 //	battery_cell_t *cells;		/* Cell info */
-	float cellvolt[MYBMM_MAX_CELLS]; /* Per-cell voltages, updated by BMS */
+	float cellvolt[MYBMM_PACK_MAX_CELLS]; /* Per-cell voltages, updated by BMS */
 	uint32_t balancebits;		/* Balance bitmask */
 	void *handle;			/* BMS Handle */
 	mybmm_module_open_t open;	/* BMS Open */
@@ -49,6 +50,9 @@ typedef struct mybmm_pack mybmm_pack_t;
 
 /* Pack states */
 #define MYBMM_PACK_STATE_UPDATED	0x01
+#define MYBMM_PACK_STATE_CHARGING	0x02
+#define MYBMM_PACK_STATE_DISCHARGING	0x04
+#define MYBMM_PACK_STATE_BALANCING	0x08
 
 #define MYBMM_BMS_CHARGE_CONTROL	0x01
 #define MYBMM_BMS_DISCHARGE_CONTROL	0x02

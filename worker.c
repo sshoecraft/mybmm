@@ -7,7 +7,7 @@
 #include <signal.h>
 #include "worker.h"
 
-#define DEBUG_WORKER 0
+#define DEBUG_WORKER 1
 #define USE_COND 1
 
 #if DEBUG_WORKER
@@ -37,12 +37,15 @@ struct worker_info {
 #define ISDONE(i) ((i->flags & FLAG_DONE) != 0)
 
 static void *worker(void *);
+void worker_cancel(worker_pool_t *pool);
 
 worker_pool_t *worker_create_pool(int count) {
 	worker_pool_t *pool;
 	register int x;
 	worker_info_t *wp;
 	pthread_attr_t attr;
+
+	if (count < 1) return 0;
 
 	pool = malloc(sizeof(*pool));
 	if (!pool) {
@@ -84,15 +87,42 @@ worker_pool_t *worker_create_pool(int count) {
 	return pool;
 }
 
+int worker_destroy_pool(worker_pool_t *pool,int timeout) {
+	register int x;
+
+	/* Wait for workers to finish */
+//	worker_finish(pool,-1);
+	worker_cancel(pool);
+
+	/* Destroy mutexes */
+	dprintf("destroying mutexes...\n");
+	for(x=0; x < pool->count; x++) pthread_mutex_destroy(&pool->workers[x].lock);
+
+#if USE_COND
+	/* Destroy conditionals */
+	dprintf("destroying cond...\n");
+	for(x=0; x < pool->count; x++) pthread_cond_destroy(&pool->workers[x].cond);
+#endif
+
+	/* Free memory */
+	dprintf("freeing mem...\n");
+	free(pool->workers);
+	free(pool);
+
+	dprintf("done!\n");
+	return 0;
+}
+#if 0
 static void _doterm(int sig) {
 	if (sig == SIGTERM) pthread_exit(0);
 }
+#endif
 
 /* The actual worker function */
 static void *worker(void *arg) {
 	struct worker_info *wp = arg;
 
-	signal(SIGTERM,_doterm);
+//	signal(SIGTERM,_doterm);
 	while(1) {
 		/* Lock this slot */
 		pthread_mutex_lock(&wp->lock);
@@ -128,7 +158,7 @@ static void *worker(void *arg) {
 		pthread_mutex_unlock(&wp->lock);
 	}
 	dprintf("worker[%d]: exiting...\n", wp->slot);
-	signal(SIGTERM,SIG_DFL);
+//	signal(SIGTERM,SIG_DFL);
 	pthread_exit(0);
 //	return (void *)0;
 }
@@ -142,17 +172,18 @@ int worker_exec(worker_pool_t *pool, worker_func_t func, void *arg) {
 
 	found = 0;
 	do {
+		dprintf("pool->count: %d\n", pool->count);
 		for(x=0; x < pool->count; x++) {
 			wp = &pool->workers[x];
 
 			/* Lock this slot */
-//			dprintf("worker[%d]: locking slot...\n",wp->slot);
+			dprintf("worker[%d]: locking slot...\n",wp->slot);
 			pthread_mutex_lock(&wp->lock);
 
 			/* If busy, unlock and continue on */
-//			dprintf("worker[%d]: busy: %d\n", wp->slot, ISBUSY(wp));
+			dprintf("worker[%d]: busy: %d\n", wp->slot, ISBUSY(wp));
 			if (ISBUSY(wp)) {
-//				dprintf("worker[%d]: unlocking slot...\n",wp->slot);
+				dprintf("worker[%d]: unlocking slot...\n",wp->slot);
 				pthread_mutex_unlock(&wp->lock);
 				continue;
 			}
@@ -171,7 +202,7 @@ int worker_exec(worker_pool_t *pool, worker_func_t func, void *arg) {
 #endif
 
 			/* Unlock */
-//			dprintf("worker[%d]: unlocking...\n",wp->slot);
+			dprintf("worker[%d]: unlocking...\n",wp->slot);
 			pthread_mutex_unlock(&wp->lock);
 
 			/* Done */
@@ -231,7 +262,8 @@ void worker_killbusy(worker_pool_t *pool) {
 			dprintf("worker[%d]: unlocking slot...\n",wp->slot);
 			pthread_mutex_unlock(&wp->lock);
 			dprintf("worker[%d]: killing slot...\n",wp->slot);
-			pthread_kill(wp->tid, SIGTERM);
+//			pthread_kill(wp->tid, SIGTERM);
+			pthread_cancel(wp->tid);
 			wp->flags |= FLAG_KILL;
 			continue;
 		}
@@ -294,29 +326,4 @@ void worker_finish(worker_pool_t *pool, int timeout) {
 
 	worker_wait(pool,timeout);
 	worker_cancel(pool);
-}
-
-int worker_destroy_pool(worker_pool_t *pool,int timeout) {
-	register int x;
-
-	/* Wait for workers to finish */
-//	worker_finish(pool,-1);
-	worker_cancel(pool);
-
-	/* Destroy mutexes */
-	dprintf("destroying mutexes...\n");
-	for(x=0; x < pool->count; x++) pthread_mutex_destroy(&pool->workers[x].lock);
-
-#if USE_COND
-	/* Destroy conditionals */
-	dprintf("destroying cond...\n");
-	for(x=0; x < pool->count; x++) pthread_cond_destroy(&pool->workers[x].cond);
-#endif
-
-	/* Free memory */
-	dprintf("freeing mem...\n");
-	free(pool->workers);
-
-	dprintf("done!\n");
-	return 0;
 }

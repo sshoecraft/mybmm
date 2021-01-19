@@ -10,19 +10,22 @@ void display(struct mybmm_config *conf) {
 #else
 #define NSUMM 4
 #define NBSUM 2
-	float temps[MYBMM_MAX_TEMPS][MYBMM_MAX_PACKS];
-	float values[MYBMM_MAX_CELLS][MYBMM_MAX_PACKS];
+	float temps[MYBMM_PACK_MAX_TEMPS][MYBMM_MAX_PACKS];
+	float values[MYBMM_PACK_MAX_CELLS][MYBMM_MAX_PACKS];
 	float summ[NSUMM][MYBMM_MAX_PACKS];
 	float bsum[NBSUM][MYBMM_MAX_PACKS];
 #endif
 	float cell_total, cell_min, cell_max, cell_diff, cell_avg, min_cap;
-	int x,y,cells,max_temps,pack_reported;
+	int x,y,npacks,cells,max_temps,pack_reported;
 	char str[32],*p;
 	char *slabels[NSUMM] = { "Min","Max","Avg","Diff" };
 	char *tlabels[NBSUM] = { "Curr","Volt" };
 	mybmm_inverter_t *inv;
 	mybmm_pack_t *pp;
 	char format[16];
+	uint8_t cdbstat[MYBMM_MAX_PACKS];
+
+	npacks = list_count(conf->packs);
 
 	cells = 0;
 	max_temps = 0;
@@ -38,9 +41,9 @@ void display(struct mybmm_config *conf) {
 	}
 	dprintf(1,"cells: %d\n",cells);
 #if 0
-	values = calloc(list_count(conf->packs)*(cells*sizeof(float)),1);
-	summ = calloc(list_count(conf->packs)*(nsumm*sizeof(float)),1);
-	bsum = calloc(list_count(conf->packs)*(nbsum*sizeof(float)),1);
+	values = calloc(npacks*(cells*sizeof(float)),1);
+	summ = calloc(npacks*(nsumm*sizeof(float)),1);
+	bsum = calloc(npacks*(nbsum*sizeof(float)),1);
 	dprintf(1,"temps: %p, values: %p, summ: %p, bsum: %p\n", temps,values,summ,bsum);
 #else
 	memset(temps,0,sizeof(temps));
@@ -80,6 +83,10 @@ void display(struct mybmm_config *conf) {
 #endif
 			for(y=0; y < pp->ntemps; y++) temps[y][x] = pp->temps[y];
 			cell_avg = cell_total / pp->cells;
+			cdbstat[x] = 0;
+			if (mybmm_check_state(pp,MYBMM_PACK_STATE_CHARGING)) cdbstat[x] |= MYBMM_PACK_STATE_CHARGING;
+			if (mybmm_check_state(pp,MYBMM_PACK_STATE_DISCHARGING)) cdbstat[x] |= MYBMM_PACK_STATE_DISCHARGING;
+			if (mybmm_check_state(pp,MYBMM_PACK_STATE_BALANCING)) cdbstat[x] |= MYBMM_PACK_STATE_BALANCING;
 		}
 		cell_diff = cell_max - cell_min;
 		dprintf(1,"conf->cells: %d\n", conf->cells);
@@ -160,12 +167,23 @@ void display(struct mybmm_config *conf) {
 	while((pp = list_get_next(conf->packs)) != 0) printf(format,"----------------------");
 	printf("\n");
 
+	/* Charge/Discharge/Balance */
+	printf(format,"CBD");
+	for(x=0; x < npacks; x++) {
+		str[0] = cdbstat[x] & 0x01 ? '*' : ' ';
+		str[2] = cdbstat[x] & 0x02 ? '*' : ' ';
+		str[3] = cdbstat[x] & 0x04 ? '*' : ' ';
+		str[4] = 0;
+		printf(format,str);
+	}
+	printf("\n");
+
 #define FTEMP(v) ( ( ( (float)(v) * 9.0 ) / 5.0) + 32.0)
 	/* Temps */
 	for(y=0; y < max_temps; y++) {
 		sprintf(str,"T%d",y+1);
 		printf(format,str);
-		for(x=0; x < list_count(conf->packs); x++) {
+		for(x=0; x < npacks; x++) {
 #if 0
 			fptr = temps + (x*2);
 			sprintf(str,"%.3f",FTEMP(fptr[y]));
@@ -183,7 +201,7 @@ void display(struct mybmm_config *conf) {
 	for(y=0; y < cells; y++) {
 		sprintf(str,"C%02d",y+1);
 		printf(format,str);
-		for(x=0; x < list_count(conf->packs); x++) {
+		for(x=0; x < npacks; x++) {
 #if 0
 			fptr = values + ((x*cells) + y);
 			sprintf(str,"%.3f",*fptr);
@@ -199,7 +217,7 @@ void display(struct mybmm_config *conf) {
 	/* Summ values */
 	for(y=0; y < NSUMM; y++) {
 		printf(format,slabels[y]);
-		for(x=0; x < list_count(conf->packs); x++) {
+		for(x=0; x < npacks; x++) {
 #if 0
 			fptr = summ + (x*NSUMM);
 			sprintf(str,"%.3f",fptr[y]);
@@ -215,7 +233,7 @@ void display(struct mybmm_config *conf) {
 	/* Current/Total */
 	for(y=0; y < NBSUM; y++) {
 		printf(format,tlabels[y]);
-		for(x=0; x < list_count(conf->packs); x++) {
+		for(x=0; x < npacks; x++) {
 #if 0
 			fptr = bsum + (x*NBSUM);
 			sprintf(str,"%.3f",fptr[y]);

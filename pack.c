@@ -23,11 +23,32 @@ int pack_update(mybmm_pack_t *pp) {
 	return r;
 }
 
+/* Special func for worker */
+int pack_worker_update(mybmm_pack_t *pp) {
+	int r;
+
+	dprintf(1,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
+	dprintf(5,"%s: opening...\n", pp->name);
+	if (pp->open(pp->handle)) {
+		dprintf(1,"%s: open error\n",pp->name);
+		return 1;
+	}
+
+	/* Before reading, push close function */
+	pthread_cleanup_push((void (*)(void *))pp->close,pp->handle);
+
+	dprintf(5,"%s: reading...\n", pp->name);
+	r = pp->read(pp->handle,0,0);
+	dprintf(5,"%s: closing\n", pp->name);
+//	pp->close(pp->handle);
+	pthread_cleanup_pop(1);
+	dprintf(5,"%s: returning: %d\n", pp->name, r);
+	if (!r) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
+	return r;
+}
+
 int pack_update_all(mybmm_config_t *conf, int wait) {
 	mybmm_pack_t *pp;
-	worker_pool_t *pool;
-
-	pool = worker_create_pool(list_count(conf->packs));
 
 	/* main loop */
 	conf->cell_crit_high = 9.9;
@@ -35,16 +56,15 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
 		mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
-		worker_exec(pool,(worker_func_t)pack_update,pp);
+		worker_exec(conf->pack_pool,(worker_func_t)pack_worker_update,pp);
 	}
-	worker_wait(pool,wait);
-	worker_killbusy(pool);
-
-	worker_destroy_pool(pool,-1);
+	worker_wait(conf->pack_pool,wait);
+	worker_killbusy(conf->pack_pool);
 
 	return 0;
 }
 
+#if 0
 static void *pack_thread(void *arg) {
 	mybmm_config_t *conf = arg;
 	mybmm_pack_t *pp;
@@ -56,7 +76,7 @@ static void *pack_thread(void *arg) {
 		list_reset(conf->packs);
 		while((pp=list_get_next(conf->packs)) != 0) {
 			mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
-			worker_exec(pool,(worker_func_t)pack_update,pp);
+			worker_exec(pool,(worker_func_t)pack_worker_update,pp);
 		}
 		worker_wait(pool,0);
 
@@ -70,9 +90,9 @@ static void *pack_thread(void *arg) {
 		sleep(30);
 	}
 
-	worker_destroy_pool(pool,-1);
 	return 0;
 }
+#endif
 
 int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
         struct cfg_proctab packtab[] = {
@@ -168,10 +188,15 @@ int pack_init(mybmm_config_t *conf) {
 
 	}
 
+	/* Create the pack worker pool */
+	conf->pack_pool = worker_create_pool(list_count(conf->packs));
+	if (!conf->pack_pool) return 1;
+
 	dprintf(3,"done!\n");
 	return 0;
 }
 
+#if 0
 int pack_start_update(mybmm_config_t *conf) {
 	pthread_attr_t attr;
 
@@ -191,6 +216,7 @@ int pack_start_update(mybmm_config_t *conf) {
 	}
 	return 0;
 }
+#endif
 
 int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp) {
 	int cell,in_range;
