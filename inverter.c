@@ -131,6 +131,10 @@ int inverter_init(mybmm_config_t *conf) {
 		}
 	}
 
+	/* Get capability mask */
+	dprintf(1,"capabilities: %02x\n", mp->capabilities);
+	inv->capabilities = mp->capabilities;
+
 	/* Set the convienience funcs */
 	inv->open = mp->open;
 	inv->read = mp->read;
@@ -139,9 +143,6 @@ int inverter_init(mybmm_config_t *conf) {
 
 	/* Update conf */
 	conf->inverter = inv;
-
-	/* Do an initial update */
-//	inverter_read(inv);
 
 	dprintf(3,"done!\n");
 	return 0;

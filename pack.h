@@ -25,7 +25,7 @@ struct mybmm_pack {
 	char transport[32];		/* Transport name */
 	char target[32];		/* Transport target */
 	char opts[64];			/* Pack-specific options */
-	unsigned char state;		/* Pack state */
+	uint16_t state;			/* Pack state */
 	int failed;			/* Update fail count */
 	int error;			/* Error code, from BMS */
 	char *errmsg;			/* Error message, updated by BMS */
@@ -40,6 +40,7 @@ struct mybmm_pack {
 //	battery_cell_t *cells;		/* Cell info */
 	float cellvolt[MYBMM_PACK_MAX_CELLS]; /* Per-cell voltages, updated by BMS */
 	uint32_t balancebits;		/* Balance bitmask */
+	uint16_t capabilities;		/* BMS Capability Mask */
 	void *handle;			/* BMS Handle */
 	mybmm_module_open_t open;	/* BMS Open */
 	mybmm_module_read_t read;	/* BMS Read */
@@ -53,10 +54,6 @@ typedef struct mybmm_pack mybmm_pack_t;
 #define MYBMM_PACK_STATE_CHARGING	0x02
 #define MYBMM_PACK_STATE_DISCHARGING	0x04
 #define MYBMM_PACK_STATE_BALANCING	0x08
-
-#define MYBMM_BMS_CHARGE_CONTROL	0x01
-#define MYBMM_BMS_DISCHARGE_CONTROL	0x02
-#define MYBMM_BMS_BALANCE_CONTROL	0x04
 
 int pack_update(mybmm_pack_t *pp);
 int pack_update_all(mybmm_config_t *,int);

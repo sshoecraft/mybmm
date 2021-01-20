@@ -34,7 +34,6 @@ struct mybmm_config {
 	int interval;			/* Check interval */
 	int system_voltage;		/* System Voltage (defaults to 48) */
 	int battery_chem;		/* Battery type (0=Li-ion, 1=LifePO4, 2=Titanate) */
-	int user_capacity;		/* User-specified capacity */
 	float battery_voltage;		/* Battery Voltage  */
 	float battery_current;		/* Total amount of power into/out of battery */
 	int cells;			/* Number of cells per battery pack */
@@ -56,17 +55,25 @@ struct mybmm_config {
 	float discharge_amps;		/* Calculated */
 	float charge_voltage;		/* Calculated: cell_high * cells */
 	float charge_amps;		/* Calculated */
+	float user_capacity;		/* User-specified capacity */
 	float user_charge_voltage;	/* User-specified charge voltage */
+	float user_charge_amps;		/* User-specified charge amps */
 	float user_discharge_voltage;	/* User-specified discharge voltage */
+	float user_discharge_amps;	/* User-specified discharge amps */
 	float user_soc;			/* Forced State of Charge */
 	void *cfg;			/* Config file handle */
-	uint32_t state;			/* States */
+	uint16_t state;			/* States */
+	uint16_t capabilities;		/* Capabilities */
 };
 typedef struct mybmm_config mybmm_config_t;
 
+/* States */
 #define MYBMM_STATE_CONFIG_DIRTY	0x01		/* Config has been updated & needs written */
-#define MYBMM_STATE_CHARGE_CONTROL	0x02		/* All packs have ability to start/stop charging */
-#define MYBMM_STATE_DISCHARGE_CONTROL	0x04		/* All packs have ability to start/stop discharging */
+
+/* Capabilities */
+#define MYBMM_CHARGE_CONTROL		0x01		/* All packs have ability to start/stop charging */
+#define MYBMM_DISCHARGE_CONTROL		0x02		/* All packs have ability to start/stop discharging */
+#define MYBMM_BALANCE_CONTROL		0x04		/* All packs have ability to start/stop balancing */
 
 mybmm_config_t *get_config(char *);
 int reconfig(mybmm_config_t *conf);

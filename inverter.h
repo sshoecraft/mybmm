@@ -11,19 +11,20 @@ struct mybmm_inverter {
 	char transport[32];		/* Transport name */
 	char target[32];		/* Device/Interface/Address */
 	char params[64];		/* Inverter-specific params */
-	unsigned char state;		/* Inverter State */
 	float battery_voltage;		/* Really? I need to comment this? */
-	float battery_current;		/* batt watts */
-	float grid_current;		/* Grid/Gen watts */
-	float load_current;		/* loads watts */
-	float pv_current;		/* pv/wind/caes watts */
+	float battery_current;		/* batt power, in amps */
+	float battery_power;		/* batt power, in watts */
+	float grid_power;		/* Grid/Gen watts */
+	float load_power;		/* loads watts */
+	float site_power;		/* pv/wind/caes/chp watts */
 	void *handle;			/* Inverter Handle */
 	mybmm_module_open_t open;	/* Inverter Open */
 	mybmm_module_control_t control;	/* Inverter Control */
 	mybmm_module_read_t read;	/* Inverter Read */
 	mybmm_module_write_t write;	/* Inverter Write */
 	mybmm_module_close_t close;	/* Inverter Close */
-	unsigned short capabilities;	/* Capability bits */
+	uint16_t state;			/* Inverter State */
+	uint16_t capabilities;		/* Capability bits */
 //	int failed;			/* Failed to update count */
 };
 typedef struct mybmm_inverter mybmm_inverter_t;

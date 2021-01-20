@@ -9,60 +9,19 @@
 
 #define DEFAULT_SPEED 9600
 
-struct serial_info {
+struct serial_session {
 	int fd;
 	char device[MYBMM_TARGET_LEN+1];
 	int speed,data,stop,parity;
 };
-typedef struct serial_info serial_info_t;
-
-static int set_interface_attribs (int fd, int speed, int data, int parity, int stop, int vmin, int vtime) {
-        struct termios tty;
-
-        if (tcgetattr (fd, &tty) != 0) {
-                printf("error %d from tcgetattr\n", errno);
-                return -1;
-        }
-
-	tty.c_cflag &= ~CBAUD;
-	tty.c_cflag |= CBAUDEX;
-	tty.c_ispeed = speed;
-	tty.c_ospeed = speed;
-	cfsetspeed (&tty, speed);
-
-        tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;     // 8-bit chars
-        // disable IGNBRK for mismatched speed tests; otherwise receive break
-        // as \000 chars
-        tty.c_iflag &= ~IGNBRK;         // disable break processing
-        tty.c_lflag = 0;                // no signaling chars, no echo,
-                                        // no canonical processing
-        tty.c_oflag = 0;                // no remapping, no delays
-        tty.c_cc[VMIN]  = vmin;		// min num of chars before returning
-        tty.c_cc[VTIME] = vtime;	// useconds to wait for a char
-
-        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
-
-        tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
-                                        // enable reading
-        tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
-        tty.c_cflag |= parity;
-        tty.c_cflag &= ~CSTOPB;		/* No stop bits */
-        tty.c_cflag |= stop;
-        tty.c_cflag &= ~CRTSCTS; /* No CTS */
-
-        if (tcsetattr (fd, TCSANOW, &tty) != 0) {
-		printf("error %d from tcsetattr\n", errno);
-                return -1;
-        }
-        return 0;
-}
+typedef struct serial_session serial_session_t;
 
 static int serial_init(mybmm_config_t *conf) {
 	return 0;
 }
 
 static void *serial_new(mybmm_config_t *conf, ...) {
-	serial_info_t *s;
+	serial_session_t *s;
 	char device[MYBMM_TARGET_LEN+1],*p;
 	int baud,parity,stop;
 	va_list(ap);
@@ -100,9 +59,66 @@ static void *serial_new(mybmm_config_t *conf, ...) {
 	return s;
 }
 
+static int set_interface_attribs (int fd, int speed, int data, int parity, int stop, int vmin, int vtime) {
+        struct termios tty;
+
+        if (tcgetattr (fd, &tty) != 0) {
+                printf("error %d from tcgetattr\n", errno);
+                return -1;
+        }
+
+	tty.c_cflag &= ~CBAUD;
+	tty.c_cflag |= CBAUDEX;
+//	tty.c_ispeed = speed;
+//	tty.c_ospeed = speed;
+	cfsetspeed (&tty, speed);
+
+	switch(data) {
+	case 5:
+        	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS5;
+		break;
+	case 6:
+        	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS6;
+		break;
+	case 7:
+        	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS7;
+		break;
+	case 8:
+	default:
+        	tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
+		break;
+	}
+        // disable IGNBRK for mismatched speed tests; otherwise receive break
+        // as \000 chars
+        tty.c_iflag &= ~IGNBRK;         // disable break processing
+        tty.c_lflag = 0;                // no signaling chars, no echo,
+                                        // no canonical processing
+        tty.c_oflag = 0;                // no remapping, no delays
+        tty.c_cc[VMIN]  = vmin;		// min num of chars before returning
+        tty.c_cc[VTIME] = vtime;	// useconds to wait for a char
+
+        tty.c_iflag &= ~(IXON | IXOFF | IXANY); // shut off xon/xoff ctrl
+
+        tty.c_cflag |= (CLOCAL | CREAD);// ignore modem controls,
+                                        // enable reading
+        tty.c_cflag &= ~(PARENB | PARODD);      // shut off parity
+        tty.c_cflag |= parity;
+        tty.c_cflag &= ~CSTOPB;		/* No stop bits */
+        tty.c_cflag |= stop;
+        tty.c_cflag &= ~CRTSCTS; /* No CTS */
+
+        if (tcsetattr (fd, TCSANOW, &tty) != 0) {
+		printf("error %d from tcsetattr\n", errno);
+                return -1;
+        }
+        return 0;
+}
+
 static int serial_open(void *handle) {
-	serial_info_t *s = handle;
+	serial_session_t *s = handle;
 	char path[256];
+
+	if (s->fd >= 0) return 0;
 
 	strcpy(path,s->device);
 	if ((access(path,0)) == 0) {
@@ -122,12 +138,14 @@ static int serial_open(void *handle) {
 }
 
 static int serial_read(void *handle, ...) {
-	serial_info_t *s = handle;
+	serial_session_t *s = handle;
 	uint8_t *buf, *p;
 	int buflen, bytes, bidx, num;
 	struct timeval tv;
 	va_list ap;
 	fd_set rdset;
+
+	if (s->fd < 0) return -1;
 
 	tv.tv_usec = 0;
 	tv.tv_sec = 1;
@@ -170,10 +188,12 @@ static int serial_read(void *handle, ...) {
 }
 
 static int serial_write(void *handle, ...) {
-	serial_info_t *s = handle;
+	serial_session_t *s = handle;
 	uint8_t *buf;
 	int bytes,buflen;
 	va_list ap;
+
+	if (s->fd < 0) return -1;
 
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
@@ -188,9 +208,12 @@ static int serial_write(void *handle, ...) {
 }
 
 static int serial_close(void *handle) {
-	serial_info_t *s = handle;
+	serial_session_t *s = handle;
 
-	close(s->fd);
+	if (s->fd >= 0) {
+		close(s->fd);
+		s->fd = -1;
+	}
 	return 0;
 }
 

@@ -20,13 +20,13 @@
 #define DEFAULT_BITRATE 250000
 #define CAN_INTERFACE_LEN 16
 
-struct can_info {
+struct can_session {
 	int fd;
 	char interface[CAN_INTERFACE_LEN+1];
 	int bitrate;
 	struct can_filter *f;
 };
-typedef struct can_info can_info_t;
+typedef struct can_session can_session_t;
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
 
@@ -35,7 +35,7 @@ static int can_init(mybmm_config_t *conf) {
 }
 
 static void *can_new(mybmm_config_t *conf,...) {
-	can_info_t *info;
+	can_session_t *s;
 	va_list ap;
 	char *target, *p;
 
@@ -44,22 +44,20 @@ static void *can_new(mybmm_config_t *conf,...) {
 	va_end(ap);
 	dprintf(3,"target: %s\n", target);
 
-
-	info = calloc(1,sizeof(*info));
-	if (!info) {
+	s = calloc(1,sizeof(*s));
+	if (!s) {
 		perror("can_new: malloc");
 		return 0;
 	}
-	info->fd = -1;
-	info->interface[0] = 0;
-	strncat(info->interface,strele(0,",",target),sizeof(info->interface)-1);
+	s->fd = -1;
+	s->interface[0] = 0;
+	strncat(s->interface,strele(0,",",target),sizeof(s->interface)-1);
 	p = strele(1,",",target);
-	if (strlen(p)) info->bitrate = atoi(p);
-	else info->bitrate = DEFAULT_BITRATE;
-	dprintf(3,"interface: %s, bitrate: %d\n",info->interface,info->bitrate);
+	if (strlen(p)) s->bitrate = atoi(p);
+	else s->bitrate = DEFAULT_BITRATE;
+	dprintf(3,"interface: %s, bitrate: %d\n",s->interface,s->bitrate);
 
-	dprintf(3,"returning info: %p\n", info); fflush(stdout);
-        return info;
+        return s;
 }
 
 /* The below get/set speed code was pulled from libsocketcan
@@ -680,37 +678,29 @@ static int do_set_nl_link(int fd, __u8 if_state, const char *name, struct req_in
 		/* setup linkinfo section */
 		struct rtattr *linkinfo = NLMSG_TAIL(&req.n);
 		addattr_l(&req.n, sizeof(req), IFLA_LINKINFO, NULL, 0);
-		addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, type,
-			  strlen(type));
+		addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, type, strlen(type));
 		/* setup data section */
 		struct rtattr *data = NLMSG_TAIL(&req.n);
 		addattr_l(&req.n, sizeof(req), IFLA_INFO_DATA, NULL, 0);
 
 		if (req_info->restart_ms > 0 || req_info->disable_autorestart)
-			addattr32(&req.n, 1024, IFLA_CAN_RESTART_MS,
-				  req_info->restart_ms);
+			addattr32(&req.n, 1024, IFLA_CAN_RESTART_MS, req_info->restart_ms);
 
-		if (req_info->restart)
-			addattr32(&req.n, 1024, IFLA_CAN_RESTART, 1);
+		if (req_info->restart) addattr32(&req.n, 1024, IFLA_CAN_RESTART, 1);
 
 		if (req_info->bittiming != NULL) {
-			addattr_l(&req.n, 1024, IFLA_CAN_BITTIMING,
-				  req_info->bittiming,
-				  sizeof(struct can_bittiming));
+			addattr_l(&req.n, 1024, IFLA_CAN_BITTIMING, req_info->bittiming, sizeof(struct can_bittiming));
 		}
 
 		if (req_info->ctrlmode != NULL) {
-			addattr_l(&req.n, 1024, IFLA_CAN_CTRLMODE,
-				  req_info->ctrlmode,
-				  sizeof(struct can_ctrlmode));
+			addattr_l(&req.n, 1024, IFLA_CAN_CTRLMODE, req_info->ctrlmode, sizeof(struct can_ctrlmode));
 		}
 
 		/* mark end of data section */
 		data->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)data;
 
 		/* mark end of link info section */
-		linkinfo->rta_len =
-		    (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
+		linkinfo->rta_len = (void *)NLMSG_TAIL(&req.n) - (void *)linkinfo;
 	}
 
 	return send_mod_request(fd, &req.n);
@@ -781,28 +771,28 @@ static int up_down_up(int fd, char *interface) {
 }
 
 static int can_open(void *handle) {
-	can_info_t *info = handle;
+	can_session_t *s = handle;
 	struct can_bittiming bt;
 	struct sockaddr_can addr;
 	struct ifreq ifr;
 	int if_up;
 
 	/* If already open, dont try again */
-	if (info->fd >= 0) return 0;
+	if (s->fd >= 0) return 0;
 
 	/* Open socket */
 	dprintf(3,"opening socket...\n");
-	info->fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-	if (info->fd < 0) {
+	s->fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+	if (s->fd < 0) {
 		perror("can_open: socket");
 		return 1;
 	}
-	dprintf(3,"fd: %d\n", info->fd);
+	dprintf(3,"fd: %d\n", s->fd);
 
 	/* Get the state */
 	memset(&ifr,0,sizeof(ifr));
-	strcpy(ifr.ifr_name,info->interface);
-	if (ioctl(info->fd, SIOCGIFFLAGS, &ifr) < 0) {
+	strcpy(ifr.ifr_name,s->interface);
+	if (ioctl(s->fd, SIOCGIFFLAGS, &ifr) < 0) {
 		perror("can_open: SIOCGIFFLAGS");
 		goto can_open_error;
 	}
@@ -811,43 +801,43 @@ static int can_open(void *handle) {
 	dprintf(3,"if_up: %d\n",if_up);
 	if (!if_up) {
 		/* Set the bitrate */
-		if (can_set_bitrate(info->interface, info->bitrate) < 0) {
-			printf("ERROR: unable to set bitrate on %s!\n", info->interface);
+		if (can_set_bitrate(s->interface, s->bitrate) < 0) {
+			printf("ERROR: unable to set bitrate on %s!\n", s->interface);
 			goto can_open_error;
 		}
-		up_down_up(info->fd,info->interface);
+		up_down_up(s->fd,s->interface);
 	} else {
 		/* Get the current timing */
-		if (can_get_bittiming(info->interface,&bt) < 0) {
+		if (can_get_bittiming(s->interface,&bt) < 0) {
 			perror("can_open: can_get_bittiming");
 			goto can_open_error;
 		}
 
 		/* Check the bitrate */
-		dprintf(3,"current bitrate: %d, wanted bitrate: %d\n", bt.bitrate, info->bitrate);
-		if (bt.bitrate != info->bitrate) {
+		dprintf(3,"current bitrate: %d, wanted bitrate: %d\n", bt.bitrate, s->bitrate);
+		if (bt.bitrate != s->bitrate) {
 			/* Bring down the IF */
 			ifr.ifr_flags = 0;
 			dprintf(3,"can_open: SIOCSIFFLAGS clear\n");
-			if (ioctl(info->fd, SIOCSIFFLAGS, &ifr) < 0) {
+			if (ioctl(s->fd, SIOCSIFFLAGS, &ifr) < 0) {
 				perror("can_open: SIOCSIFFLAGS IFF_DOWN");
 				goto can_open_error;
 			}
 
 			/* Set the bitrate */
 			dprintf(3,"setting bitrate...\n");
-			if (can_set_bitrate(info->interface, info->bitrate) < 0) {
-				printf("ERROR: unable to set bitrate on %s!\n", info->interface);
+			if (can_set_bitrate(s->interface, s->bitrate) < 0) {
+				printf("ERROR: unable to set bitrate on %s!\n", s->interface);
 				goto can_open_error;
 			}
-			up_down_up(info->fd,info->interface);
+			up_down_up(s->fd,s->interface);
 
 		}
 	}
 
 	/* Get IF index */
-	strcpy(ifr.ifr_name, info->interface);
-	if (ioctl(info->fd, SIOCGIFINDEX, &ifr) < 0) {
+	strcpy(ifr.ifr_name, s->interface);
+	if (ioctl(s->fd, SIOCGIFINDEX, &ifr) < 0) {
 		perror("can_open: SIOCGIFINDEX");
 		goto can_open_error;
 	}
@@ -855,14 +845,14 @@ static int can_open(void *handle) {
 	/* Bind the socket */
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
-	if (bind(info->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+	if (bind(s->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		perror("can_open: bind");
 		goto can_open_error;
 	}
 
 	/* If caller added a filter, apply it */
-	if (info->f) {
-		if (setsockopt(info->fd, SOL_CAN_RAW, CAN_RAW_FILTER, info->f, sizeof(*info->f)) < 0) {
+	if (s->f) {
+		if (setsockopt(s->fd, SOL_CAN_RAW, CAN_RAW_FILTER, s->f, sizeof(*s->f)) < 0) {
 			perror("can_open: setsockopt");
 			goto can_open_error;
 		}
@@ -870,20 +860,20 @@ static int can_open(void *handle) {
 	dprintf(3,"done!\n");
 	return 0;
 can_open_error:
-	close(info->fd);
-	info->fd = -1;
+	close(s->fd);
+	s->fd = -1;
 	return 1;
 }
 
 static int can_read(void *handle, ...) {
-	can_info_t *info = handle;
+	can_session_t *s = handle;
 	struct can_frame frame;
 	uint8_t *buf;
 	int id,buflen,bytes,len;
 	va_list ap;
 
 	/* If not open, error */
-	if (info->fd < 0) return -1;
+	if (s->fd < 0) return -1;
 
 	va_start(ap,handle);
 	id = va_arg(ap,int);
@@ -894,9 +884,9 @@ static int can_read(void *handle, ...) {
 	dprintf(8,"id: %03x, buf: %p, buflen: %d\n", id, buf, buflen);
 	/* Keep reading until we get our ID */
 	do {
-		bytes = read(info->fd, &frame, sizeof(struct can_frame));
+		bytes = read(s->fd, &frame, sizeof(struct can_frame));
 		dprintf(8,"frame: id: %x\n", frame.can_id);
-		dprintf(8,"fd: %d, read bytes: %d\n", info->fd, bytes);
+		dprintf(8,"fd: %d, read bytes: %d\n", s->fd, bytes);
 		if (bytes < 0) {
 			if (errno != EAGAIN) bytes = -1;
 			break;
@@ -923,14 +913,14 @@ static int can_read(void *handle, ...) {
 }
 
 static int can_write(void *handle, ...) {
-	can_info_t *info = handle;
+	can_session_t *s = handle;
 	struct can_frame frame;
 	uint8_t *buf;
 	int bytes,id,buflen,len;
 	va_list ap;
 
 	/* If not open, error */
-	if (info->fd < 0) return -1;
+	if (s->fd < 0) return -1;
 
 	va_start(ap,handle);
 	id = va_arg(ap,int);
@@ -946,18 +936,18 @@ static int can_write(void *handle, ...) {
 	frame.can_dlc = len;
 	memcpy(&frame.data,buf,len);
 	if (debug >= 5) bindump("TO BMS",&frame,sizeof(struct can_frame));
-	bytes = write(info->fd, &frame, sizeof(struct can_frame));
-	dprintf(5,"fd: %d, returning: %d\n", info->fd, bytes);
+	bytes = write(s->fd, &frame, sizeof(struct can_frame));
+	dprintf(5,"fd: %d, returning: %d\n", s->fd, bytes);
 	if (bytes < 0) perror("write");
 	return (bytes < 0 ? -1 : len);
 }
 
 static int can_close(void *handle) {
-	can_info_t *info = handle;
+	can_session_t *s = handle;
 
-	if (info->fd >= 0) {
-		close(info->fd);
-		info->fd = -1;
+	if (s->fd >= 0) {
+		close(s->fd);
+		s->fd = -1;
 	}
 	return 0;
 }

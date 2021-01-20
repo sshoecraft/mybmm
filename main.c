@@ -44,24 +44,29 @@ void usage(char *name) {
 }
 
 int main(int argc, char **argv) {
-	int opt;
+	int opt,inv_reported,packs_reported,cell,in_range,npacks;
 	char type[MYBMM_MODULE_NAME_LEN+1],transport[MYBMM_MODULE_NAME_LEN+1],target[MYBMM_TARGET_LEN+1];
 //	char *opts;
 	mybmm_config_t *conf;
+	mybmm_inverter_t *inv;
 	mybmm_pack_t *pp;
 	sigset_t set;
 	float cell_total, cell_min, cell_max, cell_diff, cell_avg;
-	float min_cap,pack_voltage_total,pack_current_total;
+	float min_cap,pack_voltage_total,pack_current_total,pack_capacity_total;
 	uint32_t mask;
-	int inv_reported,packs_reported,cell,in_range;
 	time_t start,end;
+	char *configfile;
 
 //	opts = 0;
 	type[0] = transport[0] = target[0] = 0;
-	while ((opt=getopt(argc, argv, "d:p:e:h")) != -1) {
+	configfile = 0;
+	while ((opt=getopt(argc, argv, "d:c:p:e:h")) != -1) {
 		switch (opt) {
 		case 'd':
 			debug=atoi(optarg);
+			break;
+		case 'c':
+			configfile=optarg;
 			break;
                 case 'p':
 			strncpy(type,strele(0,":",optarg),sizeof(type)-1);
@@ -100,7 +105,7 @@ int main(int argc, char **argv) {
 	printf("exiting...\n");
 
 	/* Get config */
-	conf = get_config("mybmm.conf");
+	conf = get_config((configfile ? configfile : "mybmm.conf"));
 	dprintf(4,"conf: %p\n", conf);
 	if (!conf) return 1;
 
@@ -119,19 +124,28 @@ int main(int argc, char **argv) {
 			reconfig(conf);
 			reconf = 0;
 		}
+		inv_reported = packs_reported = 0;
+		conf->battery_voltage = conf->battery_current = 0.0;
 
 		/* Get starting time */
 		time(&start);
 
 		/* Update inverter */
-		inverter_read(conf->inverter);
-		if (conf->inverter) inv_reported = mybmm_check_state(conf->inverter,MYBMM_INVERTER_STATE_UPDATED);
+		inv = conf->inverter;
+		if (inv) {
+			inverter_read(inv);
+			if (mybmm_check_state(inv,MYBMM_INVERTER_STATE_UPDATED)) {
+				inv_reported++;
+				if ((int)inv->battery_voltage) conf->battery_voltage = inv->battery_voltage;
+				if ((int)inv->battery_current) conf->battery_current = inv->battery_current;
+			}
+		}
 
 		in_range = 1;
 		pack_update_all(conf,15);
-		pack_voltage_total = pack_current_total = 0.0;
+		pack_voltage_total = pack_current_total = pack_capacity_total = 0.0;
+		npacks = list_count(conf->packs);
 		list_reset(conf->packs);
-		packs_reported = 0;
 		while((pp = list_get_next(conf->packs)) != 0) {
 			if (!mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) continue;
 			dprintf(1,"pp->cells: %d\n", pp->cells);
@@ -179,16 +193,17 @@ int main(int argc, char **argv) {
 			if (pp->capacity < min_cap) min_cap = pp->capacity;
 			pack_voltage_total += cell_total;
 			pack_voltage_total += pp->current;
+			if (mybmm_check_state(pp,MYBMM_PACK_STATE_DISCHARGING)) pack_capacity_total += pp->capacity;
 			packs_reported++;
 		}
 		/* Are we in a critvolt state and are all cells in range now? */
-		dprintf(1,"in_range: %d\n", in_range);
+		dprintf(2,"in_range: %d\n", in_range);
 		if (mybmm_is_critvolt(conf) && in_range) {
 			mybmm_clear_state(conf,MYBMM_CRIT_CELLVOLT);
 			if (mybmm_check_state(conf,MYBMM_FORCE_SOC)) mybmm_clear_state(conf,MYBMM_FORCE_SOC);
 			/* Close contactors? */
 		}
-		dprintf(0,"%d/%d packs reported\n",packs_reported,list_count(conf->packs));
+		if (npacks) dprintf(0,"%d/%d packs reported\n",packs_reported,npacks);
 
 		/* If we dont have any inverts or packs, no sense continuing... */
 		dprintf(1,"inv_reported: %d, pack_reported: %d\n", inv_reported, packs_reported);
@@ -197,54 +212,45 @@ int main(int argc, char **argv) {
 			continue;
 		}
 
-		display(conf);
+		if (npacks) {
+			display(conf);
 
-		conf->capacity = (conf->user_capacity == 0 ? min_cap * packs_reported++ : conf->user_capacity);
-		dprintf(0,"Capacity: %.1f\n", conf->capacity);
-		conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
-		dprintf(0,"kWh: %.1f\n", conf->kwh);
-
-		dprintf(1,"battery voltage: %.1f, current: %.1f\n", conf->battery_voltage, conf->battery_current);
-		dprintf(1,"pack_voltage_total: %.1f, pack_current_total: %.1f, packs_reported: %d\n",
-			pack_voltage_total, pack_current_total, packs_reported);
-		if (!(int)conf->battery_voltage) conf->battery_voltage = pack_voltage_total / packs_reported;
-		if (!(int)conf->battery_current) conf->battery_current = pack_current_total / packs_reported;
-		dprintf(0,"Battery voltage: %.1f, current: %.1f\n", conf->battery_voltage, conf->battery_current);
-
-		if (conf->user_charge_voltage) {
-			conf->charge_voltage = conf->user_charge_voltage;
-		} else {
-			conf->charge_voltage = conf->cell_high * conf->cells;
+			/* For capacity, if user capacity is set, use that.  */
+			dprintf(2,"user_capacity: %2.2f, DC: %d, min_cap: %2.2f, pack_count: %d\n",conf->user_capacity,mybmm_check_cap(conf,MYBMM_DISCHARGE_CONTROL), min_cap, list_count(conf->packs));
+			if (conf->user_capacity > 0.0) {
+				conf->capacity = conf->user_capacity;
+			/* otherwise check if all packs have discharge control, if so, sum up all packs */
+			} else if (mybmm_check_cap(conf,MYBMM_DISCHARGE_CONTROL)) {
+				conf->capacity = pack_capacity_total;
+			/* otherwise, use the min of all packs */
+			} else {
+				conf->capacity = min_cap * list_count(conf->packs);
+			}
+			dprintf(0,"Capacity: %.1f\n", conf->capacity);
+			conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
+			dprintf(0,"kWh: %.1f\n", conf->kwh);
 		}
-		if (conf->user_discharge_voltage) {
-			conf->discharge_voltage = conf->user_discharge_voltage;
-		} else {
-			conf->discharge_voltage = conf->cell_low * conf->cells;
-		}
-		dprintf(0,"Charge voltage: %.1f, Discharge voltage: %.1f\n", conf->charge_voltage, conf->discharge_voltage);
 
-		/* SoC */
-		if (conf->user_soc >= 0.0) {
-			conf->soc = conf->user_soc;
-		} else {
-			conf->soc = ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0;
+		if (npacks) {
+			dprintf(2,"pack_voltage_total: %.1f, pack_current_total: %.1f, packs_reported: %d\n",
+				pack_voltage_total, pack_current_total, packs_reported);
+			if (!(int)conf->battery_voltage) conf->battery_voltage = pack_voltage_total / packs_reported;
+			if (!(int)conf->battery_current) conf->battery_current = pack_current_total / packs_reported;
 		}
+		dprintf(0,"Battery voltage: %.1f, Battery current: %.1f\n", conf->battery_voltage, conf->battery_current);
+
+		dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
+		conf->charge_voltage = conf->user_charge_voltage > 0.0 ? conf->user_charge_voltage : conf->cell_high * conf->cells;
+		conf->charge_amps = conf->user_charge_amps > 0.0 ? conf->user_charge_amps : ((conf->c_rate * conf->capacity) * 2) / 3;
+		dprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
+
+		dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
+		conf->discharge_voltage = conf->user_discharge_voltage > 0.0 ? conf->user_discharge_voltage : conf->cell_low * conf->cells;
+		conf->discharge_amps = conf->user_discharge_amps > 0.0 ? conf->user_discharge_amps : conf->c_rate * conf->capacity;
+		dprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
+
+		conf->soc = conf->user_soc >= 0.0 ? conf->user_soc : ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0;
 		dprintf(0,"SoC: %.1f\n", conf->soc);
-
-#if 0
-		dprintf(0,"Capacity: %.1f\n", conf->capacity);
-		conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
-		dprintf(0,"kWh: %.1f\n", conf->kwh);
-#endif
-
-		conf->soh = 100.0;
-
-		/* Charge/Discharge amps */
-//		conf->charge_amps = ((conf->c_rate * conf->capacity) * 2) / 3;
-		conf->charge_amps = 12;
-//		conf->discharge_amps = conf->c_rate * conf->capacity;
-		conf->discharge_amps = 30.0;
-		dprintf(0,"Charge amps: %.1f, Discharge amps: %.1f\n", conf->charge_amps, conf->discharge_amps);
 		conf->soh = 100.0;
 
 		/* Update inverter */
@@ -253,8 +259,12 @@ int main(int argc, char **argv) {
 		/* Get ending time */
 		time(&end);
 
-		dprintf(1,"start: %d, end: %d, diff: %d, interval: %d\n",(int)start,(int)end,(int)end-(int)start,conf->interval);
-		if (end - start < conf->interval) sleep(conf->interval - (end - start));
+		dprintf(3,"start: %d, end: %d, diff: %d, interval: %d\n",(int)start,(int)end,(int)end-(int)start,conf->interval);
+		opt = conf->interval - (end - start);
+		if (end - start < conf->interval) {
+			dprintf(1,"Sleeping for %d seconds...\n",opt);
+			sleep(opt);
+		}
 	}
 
 	return 0;

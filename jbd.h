@@ -8,6 +8,7 @@ struct jbd_session {
 	mybmm_module_t *tp;		/* Our transport */
 	void *tp_handle;		/* Our transport handle */
 	mybmm_pack_t *pp;		/* Our pack info */
+	int balancing;			/* Balance_en flag set in eeprom */
 };
 typedef struct jbd_session jbd_session_t;
 

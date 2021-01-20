@@ -1,4 +1,4 @@
 while true
 do
-	./mybmm -d 4
+	./mybmm -d 1
 done

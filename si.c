@@ -188,17 +188,41 @@ void dump_bits(char *label, uint8_t bits) {
 }
 
 static int si_read(void *handle,...) {
-#if 0
 	si_session_t *s = handle;
+	mybmm_inverter_t *inv = s->inv;
 	uint8_t data[8];
-	uint8_t bits;
+
+	/* 0x305 Battery voltage Battery current Battery temperature SOC battery */
+	if (s->get_data(s,0x305,data,8)) return 1;
+	inv->battery_voltage = _getshort(&data[0]) / 10.0;
+	inv->battery_current = _getshort(&data[2]) / 10.0;
+	dprintf(1,"battery_voltage: %2.2f, battery_current: %2.2f\n", inv->battery_voltage, inv->battery_current);
 
 	/* x300 Active power grid/gen */
-	if (s->get_data(info,0x300,data,8)) return 1;
-	s->active.grid.l1 = _getshort(&data[0]) * 100.0;
-	s->active.grid.l2 = _getshort(&data[2]) * 100.0;
-	s->active.grid.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"active grid: l1: %.1f, l2: %.1f, l3: %.1f\n", s->active.grid.l1, s->active.grid.l2, s->active.grid.l3);
+	if (s->get_data(s,0x300,data,8)) return 1;
+#if 0
+	inv->active.grid.l1 = _getshort(&data[0]) * 100.0;
+	inv->active.grid.l2 = _getshort(&data[2]) * 100.0;
+	inv->active.grid.l3 = _getshort(&data[4]) * 100.0;
+	dprintf(1,"active grid: l1: %.1f, l2: %.1f, l3: %.1f\n", inv->active.grid.l1, inv->active.grid.l2, inv->active.grid.l3);
+#endif
+
+#if 0
+        float grid_current;             /* Grid/Gen watts */
+        float load_current;             /* loads watts */
+        float pv_current;               /* pv/wind/caes watts */
+        void *handle;                   /* Inverter Handle */
+        mybmm_module_open_t open;       /* Inverter Open */
+        mybmm_module_control_t control; /* Inverter Control */
+        mybmm_module_read_t read;       /* Inverter Read */
+        mybmm_module_write_t write;     /* Inverter Write */
+        mybmm_module_close_t close;     /* Inverter Close */
+        uint16_t state;                 /* Inverter State */
+        uint16_t capabilities;          /* Capability bits */
+//      int failed;                     /* Failed to update count */
+
+	uint8_t bits;
+
 
 	/* x301 Active power Sunny Island */
 	if (s->get_data(info,0x301,data,8)) return 1;
@@ -230,10 +254,6 @@ static int si_read(void *handle,...) {
 	dprintf(1,"voltage: l1: %.1f, l2: %.1f, l3: %.1f\n", s->voltage.l1, s->voltage.l2, s->voltage.l3);
 	dprintf(1,"frequency: %.1f\n",s->frequency);
 
-	/* 0x305 Battery voltage Battery current Battery temperature SOC battery */
-	s->get_data(info,0x305,data,8);
-	s->battery_voltage = _getshort(&data[0]) / 10.0;
-	s->battery_current = _getshort(&data[2]) / 10.0;
 	s->battery_temp = _getshort(&data[4]) / 10.0;
 	s->battery_soc = _getshort(&data[6]) / 10.0;
 	dprintf(1,"battery_voltage: %.1f\n", s->battery_voltage);
@@ -355,8 +375,8 @@ static int si_write(void *handle,...) {
 	mybmm_config_t *conf = s->conf;
 	uint8_t data[8];
 
-	dprintf(1,"0x351: charge_voltage: %.1f, charge_amps: %.1f, discharge_amps: %.1f, discharge_voltage: %.1f\n",
-		conf->charge_voltage, conf->charge_amps, conf->discharge_amps, conf->discharge_voltage);
+	dprintf(1,"0x351: charge_voltage: %3.2f, charge_amps: %3.2f, discharge_voltage: %3.2f, discharge_amps: %3.2f\n",
+		conf->charge_voltage, conf->charge_amps, conf->discharge_voltage, conf->discharge_amps);
 	_putshort(&data[0],(conf->charge_voltage * 10.0));
 	_putshort(&data[2],(conf->charge_amps * 10.0));
 	_putshort(&data[4],(conf->discharge_amps * 10.0));

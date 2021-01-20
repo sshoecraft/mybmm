@@ -28,68 +28,6 @@ struct bt_session {
 };
 typedef struct bt_session bt_session_t;
 
-static void notification_cb(const uuid_t* uuid, const uint8_t* data, size_t data_length, void* user_data) {
-	bt_session_t *bt = (bt_session_t *) user_data;
-
-	/* Really should check for overrun here */
-	dprintf(4,"bt->len: %d, data: %p, data_length: %d\n", bt->len, data, data_length);
-	if (bt->len + data_length > sizeof(bt->data)) data_length = sizeof(bt->data) - bt->len;
-	memcpy(&bt->data[bt->len],data,data_length);
-	bt->len+=data_length;
-	dprintf(4,"bt->len: %d\n", bt->len);
-	bt->cbcnt++;
-	dprintf(4,"bt->cbcnt: %d\n", bt->cbcnt);
-}
-
-static int open_bt(bt_session_t *bt) {
-	uint16_t on = 0x0001;
-
-#define UUID "0xffe1"
-	if (gattlib_string_to_uuid(UUID, strlen(UUID)+1, &bt->uuid) < 0) {
-		fprintf(stderr, "Fail to convert string to UUID\n");
-		return 1;
-	}
-
-	dprintf(1,"connecting to: %s\n", bt->target);
-	bt->c = gattlib_connect(NULL, bt->target, GATTLIB_CONNECTION_OPTIONS_LEGACY_DEFAULT);
-	if (!bt->c) {
-		fprintf(stderr, "Fail to connect to the bluetooth device.\n");
-		return 1;
-	}
-	dprintf(1,"bt->c: %p\n", bt->c);
-
-	/* yes, its hardcoded. deal. */
-	dprintf(1,"reg not\n");
-	gattlib_write_char_by_handle(bt->c, 0x0026, &on, sizeof(on));
-	gattlib_register_notification(bt->c, notification_cb, bt);
-	if (gattlib_notification_start(bt->c, &bt->uuid)) {
-		dprintf(1,"error: failed to start bluetooth notification.\n");
-		gattlib_disconnect(bt->c);
-		return 1;
-	}
-	dprintf(1,"bt->c: %p\n", bt->c);
-
-	return 0;
-}
-
-#if 0
-static int get_bt(bt_session_t *bt, unsigned char *cmd, int cmd_len) {
-	int retries;
-
-	bt->len = 0;
-	bt->cbcnt = 0;
-	retries=3;
-	do {
-		dprintf(1,"retries: %d\n", retries);
-		if (gattlib_write_char_by_uuid(bt->c, &bt->uuid, cmd, cmd_len)) return 1;
-		sleep(1);
-	} while(retries-- && bt->cbcnt == 0);
-	if (retries < 1) return 1;
-//	bindump("get_bt",bt->data,bt->len);
-	return 0;
-}
-#endif
-
 static int bt_init(mybmm_config_t *conf) {
 	return 0;
 }
@@ -109,21 +47,63 @@ static void *bt_new(mybmm_config_t *conf, ...) {
 		perror("bt_new: malloc");
 		return 0;
 	}
+	s->c = 0;
 	strcpy(s->target,target);
 	return s;
 }
 
-static int bt_open(void *handle) {
-	bt_session_t *bt = handle;
+static void notification_cb(const uuid_t* uuid, const uint8_t* data, size_t data_length, void* user_data) {
+	bt_session_t *s = (bt_session_t *) user_data;
 
-	return (open_bt(bt));
+	/* Really should check for overrun here */
+	dprintf(4,"s->len: %d, data: %p, data_length: %d\n", s->len, data, data_length);
+	if (s->len + data_length > sizeof(s->data)) data_length = sizeof(s->data) - s->len;
+	memcpy(&s->data[s->len],data,data_length);
+	s->len+=data_length;
+	dprintf(4,"s->len: %d\n", s->len);
+	s->cbcnt++;
+	dprintf(4,"s->cbcnt: %d\n", s->cbcnt);
+}
+
+static int bt_open(void *handle) {
+	bt_session_t *s = handle;
+	uint16_t on = 0x0001;
+
+#define UUID "0xffe1"
+	if (gattlib_string_to_uuid(UUID, strlen(UUID)+1, &s->uuid) < 0) {
+		fprintf(stderr, "Fail to convert string to UUID\n");
+		return 1;
+	}
+
+	dprintf(1,"connecting to: %s\n", s->target);
+	s->c = gattlib_connect(NULL, s->target, GATTLIB_CONNECTION_OPTIONS_LEGACY_DEFAULT);
+	if (!s->c) {
+		fprintf(stderr, "Fail to connect to the bluetooth device.\n");
+		return 1;
+	}
+	dprintf(1,"s->c: %p\n", s->c);
+
+	/* yes, its hardcoded. deal. */
+	dprintf(1,"reg not\n");
+	gattlib_write_char_by_handle(s->c, 0x0026, &on, sizeof(on));
+	gattlib_register_notification(s->c, notification_cb, s);
+	if (gattlib_notification_start(s->c, &s->uuid)) {
+		dprintf(1,"error: failed to start bluetooth notification.\n");
+		gattlib_disconnect(s->c);
+		return 1;
+	}
+	dprintf(1,"s->c: %p\n", s->c);
+
+	return 0;
 }
 
 static int bt_read(void *handle,...) {
-	bt_session_t *bt = handle;
+	bt_session_t *s = handle;
 	uint8_t *buf;
 	int buflen, len, retries;
 	va_list ap;
+
+	if (!s->c) return -1;
 
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
@@ -134,16 +114,16 @@ static int bt_read(void *handle,...) {
 
 	retries=3;
 	while(1) {
-		dprintf(1,"bt->len: %d\n", bt->len);
-		if (!bt->len) {
+		dprintf(1,"s->len: %d\n", s->len);
+		if (!s->len) {
 			if (!--retries) return 0;
 			sleep(1);
 			continue;
 		}
-		len = (bt->len > buflen ? buflen : bt->len);
+		len = (s->len > buflen ? buflen : s->len);
 		dprintf(1,"len: %d\n", len);
-		memcpy(buf,bt->data,len);
-		bt->len = 0;
+		memcpy(buf,s->data,len);
+		s->len = 0;
 		break;
 	}
 
@@ -151,13 +131,12 @@ static int bt_read(void *handle,...) {
 }
 
 static int bt_write(void *handle,...) {
-	bt_session_t *bt = handle;
+	bt_session_t *s = handle;
 	uint8_t *buf;
 	int buflen;
 	va_list ap;
 
-	dprintf(1,"bt: %p\n", bt);
-	dprintf(1,"bt->c: %p\n", bt->c);
+	if (!s->c) return -1;
 
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
@@ -166,21 +145,22 @@ static int bt_write(void *handle,...) {
 
 	dprintf(1,"buf: %p, buflen: %d\n", buf, buflen);
 
-	bt->len = 0;
-	bt->cbcnt = 0;
-	dprintf(1,"bt->c: %p\n", bt->c);
-	if (gattlib_write_char_by_uuid(bt->c, &bt->uuid, buf, buflen)) return -1;
+	s->len = 0;
+	s->cbcnt = 0;
+	dprintf(1,"s->c: %p\n", s->c);
+	if (gattlib_write_char_by_uuid(s->c, &s->uuid, buf, buflen)) return -1;
 
 	return buflen;
 }
 
 
 static int bt_close(void *handle) {
-	bt_session_t *bt = handle;
+	bt_session_t *s = handle;
 
-	if (bt->c) {
-//		gattlib_notification_stop(bt->c, &bt->uuid);
-		gattlib_disconnect(bt->c);
+	if (s->c) {
+//		gattlib_notification_stop(s->c, &s->uuid);
+		gattlib_disconnect(s->c);
+		s->c = 0;
 	}
 	return 0;
 }

@@ -130,16 +130,16 @@ void display(struct mybmm_config *conf) {
 		}
 		printf("State: %s\n", p);
 		if (strcmp(p,"Error") != 0) {
-			printf("Charge voltage: %.1f, Discharge voltage: %.1f\n", conf->charge_voltage, conf->discharge_voltage);
+			printf("Charge voltage: %2.1f, Discharge voltage: %2.1f\n", conf->charge_voltage, conf->discharge_voltage);
 		}
 //	} else {
 //		dprintf(0,"\nInverter: None\n");
 	}
 #if 0
 	conf->capacity = (conf->user_capacity == -1 ? min_cap * pack_reported++ : conf->user_capacity);
-	printf("Capacity: %.1f\n", conf->capacity);
+	printf("Capacity: %2.1f\n", conf->capacity);
 	conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
-	printf("kWh: %.1f\n", conf->kwh);
+	printf("kWh: %2.1f\n", conf->kwh);
 	printf("\n");
 #endif
 
@@ -169,11 +169,16 @@ void display(struct mybmm_config *conf) {
 
 	/* Charge/Discharge/Balance */
 	printf(format,"CBD");
-	for(x=0; x < npacks; x++) {
-		str[0] = cdbstat[x] & 0x01 ? '*' : ' ';
-		str[2] = cdbstat[x] & 0x02 ? '*' : ' ';
-		str[3] = cdbstat[x] & 0x04 ? '*' : ' ';
-		str[4] = 0;
+	list_reset(conf->packs);
+	while((pp = list_get_next(conf->packs)) != 0) {
+		if (mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) {
+			str[0] = mybmm_check_state(pp,MYBMM_PACK_STATE_CHARGING) ? '*' : ' ';
+			str[1] = mybmm_check_state(pp,MYBMM_PACK_STATE_DISCHARGING) ? '*' : ' ';
+			str[2] = mybmm_check_state(pp,MYBMM_PACK_STATE_BALANCING) ? '*' : ' ';
+		} else {
+			str[0] = str[1] = str[2] = ' ';
+		}
+		str[3] = 0;
 		printf(format,str);
 	}
 	printf("\n");
@@ -188,8 +193,8 @@ void display(struct mybmm_config *conf) {
 			fptr = temps + (x*2);
 			sprintf(str,"%.3f",FTEMP(fptr[y]));
 #else
-//			sprintf(str,"%.1f",FTEMP(temps[y][x]));
-			sprintf(str,"%.1f",temps[y][x]);
+//			sprintf(str,"%2.1f",FTEMP(temps[y][x]));
+			sprintf(str,"%2.1f",temps[y][x]);
 #endif
 			printf(format,str);
 		}
@@ -238,7 +243,7 @@ void display(struct mybmm_config *conf) {
 			fptr = bsum + (x*NBSUM);
 			sprintf(str,"%.3f",fptr[y]);
 #else
-			sprintf(str,"%.3f",bsum[y][x]);
+			sprintf(str,"%2.3f",bsum[y][x]);
 #endif
 			printf(format,str);
 		}

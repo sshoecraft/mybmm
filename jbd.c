@@ -21,6 +21,9 @@ LICENSE file in the root directory of this source tree.
 #define JBD_CMD_HWVER		0x05
 #define JBD_CMD_MOS		0xE1
 
+#define JBD_MOS_CHARGE          0x01
+#define JBD_MOS_DISCHARGE       0x02
+
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
@@ -224,17 +227,29 @@ int jbd_can_get_pack(struct jbd_session *s) {
 	mybmm_pack_t *pp = s->pp;
 	uint8_t data[8];
 	int id,i;
+	uint16_t protectbits,fetbits;
 	struct jbd_protect prot;
 
-	/* 1-16 balance */
+	/* 0x102 Equalization state low byte, equalized state high byte, protection status */
 	if (jbd_can_get_crc(s,0x102,data,8)) return 1;
 	pp->balancebits = _getshort(&data[0]);
-
-	/* 17 - 33 */
 	pp->balancebits |= _getshort(&data[2]) << 16;
+	protectbits = _getshort(&data[4]);
+	/* Do we have any protection actions? */
+	if (protectbits) {
+		jbd_get_protect(&prot,protectbits);
+	}
 
-	/* Protectbits */
-	jbd_get_protect(&prot,_getshort(&data[4]));
+	/* 0x103 FET control status, production date, software version */
+	if (jbd_can_get_crc(s,0x103,data,8)) return 1;
+	fetbits = _getshort(&data[0]);
+	dprintf(2,"fetbits: %02x\n", fetbits);
+	if (fetbits & JBD_MOS_CHARGE) mybmm_set_state(pp,MYBMM_PACK_STATE_CHARGING);
+	else mybmm_clear_state(pp,MYBMM_PACK_STATE_CHARGING);
+	if (fetbits & JBD_MOS_DISCHARGE) mybmm_set_state(pp,MYBMM_PACK_STATE_DISCHARGING);
+	else mybmm_clear_state(pp,MYBMM_PACK_STATE_DISCHARGING);
+	if (s->balancing) mybmm_set_state(pp,MYBMM_PACK_STATE_BALANCING);
+	else mybmm_clear_state(pp,MYBMM_PACK_STATE_BALANCING);
 
 	if (jbd_can_get_crc(s,0x104,data,8)) return 1;
 	pp->cells = data[0];
@@ -305,7 +320,7 @@ static int jbd_get_pack(jbd_session_t *s) {
 	mybmm_pack_t *pp = s->pp;
 	uint8_t data[128];
 	int i,bytes;;
-	uint8_t fetstate;
+	uint8_t fetbits;
 	struct jbd_protect prot;
 
 	dprintf(3,"getting HWINFO...\n");
@@ -341,8 +356,14 @@ static int jbd_get_pack(jbd_session_t *s) {
 	/* Protectbits */
 	jbd_get_protect(&prot,_getshort(&data[16]));
 
-	fetstate = data[20];
-	dprintf(2,"fetstate: %02x\n", fetstate);
+	fetbits = data[20];
+	dprintf(2,"fetbits: %02x\n", fetbits);
+	if (fetbits & JBD_MOS_CHARGE) mybmm_set_state(pp,MYBMM_PACK_STATE_CHARGING);
+	else mybmm_clear_state(pp,MYBMM_PACK_STATE_CHARGING);
+	if (fetbits & JBD_MOS_DISCHARGE) mybmm_set_state(pp,MYBMM_PACK_STATE_DISCHARGING);
+	else mybmm_set_state(pp,MYBMM_PACK_STATE_DISCHARGING);
+	if (s->balancing) mybmm_set_state(pp,MYBMM_PACK_STATE_BALANCING);
+	else mybmm_clear_state(pp,MYBMM_PACK_STATE_BALANCING);
 
 	pp->cells = data[21];
 	dprintf(2,"cells: %d\n", pp->cells);
@@ -439,7 +460,7 @@ static int jbd_control(void *handle,...) {
 	op = va_arg(ap,int);
 	dprintf(1,"op: %d\n", op);
 	switch(op) {
-	case MYBMM_BMS_CHARGE_CONTROL:
+	case MYBMM_CHARGE_CONTROL:
 		action = va_arg(ap,int);
 		dprintf(1,"action: %d\n", action);
 		break;
@@ -451,7 +472,7 @@ static int jbd_control(void *handle,...) {
 mybmm_module_t jbd_module = {
 	MYBMM_MODTYPE_CELLMON,
 	"jbd",
-	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL | MYBMM_BMS_BALANCE_CONTROL,
+	MYBMM_CHARGE_CONTROL | MYBMM_DISCHARGE_CONTROL | MYBMM_BALANCE_CONTROL,
 	jbd_init,			/* Init */
 	jbd_new,			/* New */
 	jbd_open,			/* Open */

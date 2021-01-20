@@ -46,6 +46,7 @@ static void *ip_new(mybmm_config_t *conf, ...) {
 		perror("ip_new: malloc");
 		return 0;
 	}
+	s->fd = -1;
 	s->target[0] = 0;
 	p = strchr(target,':');
 	if (p) *p = 0;
@@ -67,6 +68,8 @@ static int ip_open(void *handle) {
 //	struct timeval tv;
 	char temp[MYBMM_TARGET_LEN];
 	uint8_t *ptr;
+
+	if (s->fd >= 0) return 0;
 
 	s->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (s->fd < 0) {
@@ -122,6 +125,8 @@ static int ip_read(void *handle, ...) {
 	struct timeval tv;
 	fd_set rdset;
 
+	if (s->fd < 0) return -1;
+
 	tv.tv_usec = 0;
 	tv.tv_sec = 1;
 
@@ -176,6 +181,8 @@ static int ip_write(void *handle, ...) {
 	fd_set wrset;
 	struct timeval tv;
 
+	if (s->fd < 0) return -1;
+
 	va_start(ap,handle);
 	buf = va_arg(ap, uint8_t *);
 	buflen = va_arg(ap, int);
@@ -203,7 +210,12 @@ static int ip_write(void *handle, ...) {
 static int ip_close(void *handle) {
 	ip_session_t *s = handle;
 
-	close(s->fd);
+	/* Is it open */
+	if (s->fd >= 0) {
+		dprintf(1,"closing...\n");
+		close(s->fd);
+		s->fd = -1;
+	}
 	return 0;
 }
 

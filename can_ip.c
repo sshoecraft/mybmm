@@ -60,6 +60,7 @@ static void *can_ip_new(mybmm_config_t *conf, ...) {
 		perror("can_ip_new: malloc");
 		return 0;
 	}
+	s->fd = -1;
 
 	/* Format is addr:port:interface:speed */
 	s->target[0] = 0;
@@ -92,6 +93,8 @@ static int can_ip_open(void *handle) {
 	int bytes;
 	char temp[MYBMM_TARGET_LEN];
 	uint8_t *ptr;
+
+	if (s->fd >= 0) return 0;
 
 	dprintf(1,"Creating socket...\n");
 	s->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -154,6 +157,8 @@ static int can_ip_read(void *handle, ...) {
 	struct can_frame frame;
 	va_list ap;
 
+	if (s->fd < 0) return -1;
+
 	va_start(ap,handle);
 	id = va_arg(ap, int);
 	buf = va_arg(ap, uint8_t *);
@@ -192,6 +197,8 @@ static int can_ip_write(void *handle, ...) {
 	struct can_frame frame;
 	va_list ap;
 
+	if (s->fd < 0) return -1;
+
 	va_start(ap,handle);
 	id = va_arg(ap, int);
 	buf = va_arg(ap, uint8_t *);
@@ -223,12 +230,12 @@ static int can_ip_write(void *handle, ...) {
 
 static int can_ip_close(void *handle) {
 	can_ip_session_t *s = handle;
-//	int bytes;
 
-	devserver_request(s->fd,CANSERVER_CLOSE,s->unit,0,0);
-//	dprintf(5,"bytes: %d\n", bytes);
-	close(s->fd);
-	s->fd = -1;
+	if (s->fd >= 0) {
+		devserver_request(s->fd,CANSERVER_CLOSE,s->unit,0,0);
+		close(s->fd);
+		s->fd = -1;
+	}
 	return 0;
 }
 

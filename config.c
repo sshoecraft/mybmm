@@ -7,11 +7,8 @@
 int read_config(mybmm_config_t *conf) {
         struct cfg_proctab myconf[] = {
 		{ "mybmm", "interval", "Time between updates", DATA_TYPE_INT, &conf->interval, 0, "20" },
-		{ "mybmm", "capacity", "Force Battery Capacity", DATA_TYPE_INT, &conf->user_capacity, 0, "-1" },
-		{ "mybmm", "max_charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->max_charge_amps, 0, 0 },
-		{ "mybmm", "max_discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->max_discharge_amps, 0, 0 },
-		{ "mybmm", "charge_voltage", "Charge Voltage", DATA_TYPE_FLOAT, &conf->charge_voltage, 0, 0 },
-		{ "mybmm", "charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->charge_amps, 0, 0 },
+		{ "mybmm", "max_charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->max_charge_amps, 0, "-1" },
+		{ "mybmm", "max_discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->max_discharge_amps, 0, "-1" },
 		{ "mybmm", "system_voltage", "Battery/System Voltage", DATA_TYPE_INT, &conf->system_voltage, 0, "48" },
 		{ "mybmm", "battery_chem", "Battery Chemistry", DATA_TYPE_INT, &conf->battery_chem, 0, "1" },
 		{ "mybmm", "cells", "Number of battery cells per pack", DATA_TYPE_INT, &conf->cells, 0, "14" },
@@ -21,7 +18,13 @@ int read_config(mybmm_config_t *conf) {
 		{ "mybmm", "cell_crit_high", "Critical cell high voltage", DATA_TYPE_FLOAT, &conf->cell_crit_high, 0, "-1" },
 		{ "mybmm", "c_rate", "Current rate", DATA_TYPE_FLOAT, &conf->c_rate, 0, "-1" },
 		{ "mybmm", "database", "Database Connection", DATA_TYPE_STRING, &conf->db_name, sizeof(conf->db_name), "" },
-		{ "mybmm", "force_soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
+		/* Forced values */
+		{ "mybmm", "capacity", "Battery Capacity", DATA_TYPE_FLOAT, &conf->user_capacity, 0, "-1" },
+		{ "mybmm", "charge_voltage", "Charge Voltage", DATA_TYPE_FLOAT, &conf->user_charge_voltage, 0, "-1" },
+		{ "mybmm", "charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->user_charge_amps, 0, "-1" },
+		{ "mybmm", "discharge_voltage", "Discharge Voltage", DATA_TYPE_FLOAT, &conf->user_discharge_voltage, 0, "-1" },
+		{ "mybmm", "discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->user_discharge_amps, 0, "-1" },
+		{ "mybmm", "soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
 		CFG_PROCTAB_END
 	};
 

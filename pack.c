@@ -40,7 +40,6 @@ int pack_worker_update(mybmm_pack_t *pp) {
 	dprintf(5,"%s: reading...\n", pp->name);
 	r = pp->read(pp->handle,0,0);
 	dprintf(5,"%s: closing\n", pp->name);
-//	pp->close(pp->handle);
 	pthread_cleanup_pop(1);
 	dprintf(5,"%s: returning: %d\n", pp->name, r);
 	if (!r) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
@@ -60,6 +59,12 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	}
 	worker_wait(conf->pack_pool,wait);
 	worker_killbusy(conf->pack_pool);
+
+	/* Make sure all closed (in case update was killed) */
+	list_reset(conf->packs);
+	while((pp = list_get_next(conf->packs)) != 0) {
+		pp->close(pp->handle);
+	}
 
 	return 0;
 }
@@ -150,6 +155,10 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		}
 	}
 
+	/* Get capability mask */
+	dprintf(1,"capabilities: %02x\n", mp->capabilities);
+	pp->capabilities = mp->capabilities;
+
 	/* Set the convienience funcs */
 	pp->open = mp->open;
 	pp->read = mp->read;
@@ -167,12 +176,12 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 int pack_init(mybmm_config_t *conf) {
 	mybmm_pack_t *pp;
 	char name[32];
-	int i;
+	int i,c,d;
 
 	/* Read pack info */
-	for(i=1; i < MYBMM_MAX_PACKS; i++) {
+	for(i=0; i < MYBMM_MAX_PACKS; i++) {
 		/* Fill the section name in and read the config */
-		sprintf(name,"pack_%02d",i);
+		sprintf(name,"pack_%02d",i+1);
 		dprintf(3,"name: %s\n", name);
 
 		if (!cfg_get_item(conf->cfg,name,"type")) break;
@@ -185,13 +194,37 @@ int pack_init(mybmm_config_t *conf) {
 			free(pp);
 			return 1;
 		}
-
 	}
+
+	/* If no packs, return now */
+	dprintf(1,"i: %d\n", i);
+	if (!i) return 0;
 
 	/* Create the pack worker pool */
 	conf->pack_pool = worker_create_pool(list_count(conf->packs));
 	if (!conf->pack_pool) return 1;
 
+	/* Go through all packs and see if all have charge/discharge control */
+	c = d = 1;
+	list_reset(conf->packs);
+	while((pp = list_get_next(conf->packs)) != 0) {
+		if (!mybmm_check_cap(pp,MYBMM_CHARGE_CONTROL))
+			c = 0;
+		else if (!mybmm_check_cap(pp,MYBMM_DISCHARGE_CONTROL))
+			d = 0;
+	}
+	if (c) {
+		dprintf(0,"all packs have charge control!\n");
+		mybmm_set_cap(conf,MYBMM_CHARGE_CONTROL);
+	} else {
+		dprintf(0,"warning: all packs DO NOT have charge control!\n");
+	}
+	if (d) {
+		dprintf(0,"all packs have discharge control!\n");
+		mybmm_set_cap(conf,MYBMM_DISCHARGE_CONTROL);
+	} else {
+		dprintf(0,"warning: all packs DO NOT have discharge control!\n");
+	}
 	dprintf(3,"done!\n");
 	return 0;
 }
@@ -218,6 +251,7 @@ int pack_start_update(mybmm_config_t *conf) {
 }
 #endif
 
+#if 0
 int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp) {
 	int cell,in_range;
 	float cell_total, cell_min, cell_max, cell_diff, cell_avg;
@@ -270,3 +304,4 @@ int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp) {
 #endif
 	return (in_range ? 0 : 1);
 }
+#endif

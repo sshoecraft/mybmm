@@ -217,7 +217,7 @@ static int jk_control(void *handle,...) {
 	op = va_arg(ap,int);
 	dprintf(1,"op: %d\n", op);
 	switch(op) {
-	case MYBMM_BMS_CHARGE_CONTROL:
+	case MYBMM_CHARGE_CONTROL:
 		action = va_arg(ap,int);
 		dprintf(1,"action: %d\n", action);
 		break;
@@ -229,7 +229,7 @@ static int jk_control(void *handle,...) {
 mybmm_module_t jk_module = {
 	MYBMM_MODTYPE_CELLMON,
 	"jk",
-	MYBMM_BMS_CHARGE_CONTROL | MYBMM_BMS_DISCHARGE_CONTROL | MYBMM_BMS_BALANCE_CONTROL,
+	MYBMM_CHARGE_CONTROL | MYBMM_DISCHARGE_CONTROL | MYBMM_BALANCE_CONTROL,
 	jk_init,			/* Init */
 	jk_new,			/* New */
 	jk_open,			/* Open */
