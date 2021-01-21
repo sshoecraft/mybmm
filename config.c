@@ -1,8 +1,11 @@
 
 #include <dlfcn.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include "mybmm.h"
 #include "cfg.h"
+#include "battery.h"
 
 int read_config(mybmm_config_t *conf) {
         struct cfg_proctab myconf[] = {
@@ -28,11 +31,13 @@ int read_config(mybmm_config_t *conf) {
 		CFG_PROCTAB_END
 	};
 
-	conf->cfg = cfg_read(conf->filename);
-	dprintf(3,"cfg: %p\n", conf->cfg);
-	if (!conf->cfg) {
-		printf("error: unable to read config file '%s': %s\n", conf->filename, strerror(errno));
-		return 1;
+	if (conf->filename) {
+		conf->cfg = cfg_read(conf->filename);
+		dprintf(3,"cfg: %p\n", conf->cfg);
+		if (!conf->cfg) {
+			printf("error: unable to read config file '%s': %s\n", conf->filename, strerror(errno));
+			return 1;
+		}
 	}
 
 	cfg_get_tab(conf->cfg,myconf);
@@ -43,39 +48,6 @@ int read_config(mybmm_config_t *conf) {
 	dprintf(1,"db_name: %s\n", conf->db_name);
 //	if (strlen(conf->db_name)) db_init(conf,conf->db_name);
 
-	/* Set battery chem parms if not set by user */
-	switch(conf->battery_chem) {
-	default:
-	case BATTERY_CHEM_LITHIUM:
-		dprintf(1,"battery_chem: LITHIUM\n");
-		if (conf->cell_low < 0) conf->cell_low = 3.2;
-		if (conf->cell_crit_low < 0) conf->cell_crit_low = 3.0;
-		if (conf->cell_high < 0) conf->cell_high = 4.08;
-		if (conf->cell_crit_high < 0) conf->cell_crit_high = 4.2;
-		if (conf->c_rate < 0) conf->c_rate = .5;
-		break;
-	case BATTERY_CHEM_LIFEPO4:
-		dprintf(1,"battery_chem: LITHIUM\n");
-		if (conf->cell_low < 0) conf->cell_low = 3.0;
-		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.8;
-		if (conf->cell_high < 0) conf->cell_high = 3.4;
-		if (conf->cell_crit_high < 0) conf->cell_crit_high = 3.65;
-		if (conf->c_rate < 0) conf->c_rate = .4;
-		break;
-	case BATTERY_CHEM_TITANATE:
-		dprintf(1,"battery_chem: LITHIUM\n");
-		if (conf->cell_low < 0) conf->cell_low = 2.0;
-		if (conf->cell_crit_low < 0) conf->cell_crit_low = 1.8;
-		if (conf->cell_high < 0) conf->cell_high = 2.65;
-		if (conf->cell_crit_high < 0) conf->cell_crit_high = 2.85;
-		if (conf->c_rate < 0) conf->c_rate = 10;
-		break;
-	case BATTERY_CHEM_UNKNOWN:
-		dprintf(1,"battery_chem: UNKNOWN\n");
-		return 1;
-		break;
-	}
-
 #if 0
 	conf->dlsym_handle = dlopen(0,RTLD_LAZY);
 	if (!conf->dlsym_handle) {
@@ -84,6 +56,9 @@ int read_config(mybmm_config_t *conf) {
 	}
 	dprintf(3,"dlsym_handle: %p\n",conf->dlsym_handle);
 #endif
+
+	/* Init battery config */
+	if (battery_init(conf)) return 1;
 
 	/* Init inverter */
 	if (inverter_init(conf)) return 1;

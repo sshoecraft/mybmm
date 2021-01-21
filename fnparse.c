@@ -1,8 +1,15 @@
 
 #include <unistd.h>
 #include <string.h>
+
+#ifdef DEBUG
+#undef DEBUG
+#endif
+//#define DEBUG 1
+
 #include "log.h"
 #include "fileinfo.h"
+#include "debug.h"
 
 #define SLASH_STRING "/"
 #define SLASH_CHAR '/'
@@ -30,6 +37,8 @@ static void _printit(char *name, char *string, int len) {
 #else
 #define DLOGF(n,s,l) /* noop */
 #endif
+
+char *stredit(char *string, char *list);
 
 char *os_fnparse(char *filespec,char *defspec,char *field) {
 	static char return_string[255];

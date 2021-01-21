@@ -1,4 +1,6 @@
+rm -f restarts
 while true
 do
-	./mybmm -d 1
+	./mybmm -c mybmm.conf -d 1
+	date >> restarts
 done

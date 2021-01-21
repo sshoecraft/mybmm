@@ -192,161 +192,28 @@ static int si_read(void *handle,...) {
 	mybmm_inverter_t *inv = s->inv;
 	uint8_t data[8];
 
+	/* x300 Active power grid/gen L1/L2/L3 */
+	if (s->get_data(s,0x300,data,8)) return 1;
+	inv->grid_power = (_getshort(&data[0]) * 100.0) + (_getshort(&data[2]) * 100.0) + (_getshort(&data[4]) * 100.0);
+	dprintf(1,"grid_power: %3.2f\n",inv->grid_power);
+
 	/* 0x305 Battery voltage Battery current Battery temperature SOC battery */
 	if (s->get_data(s,0x305,data,8)) return 1;
 	inv->battery_voltage = _getshort(&data[0]) / 10.0;
 	inv->battery_current = _getshort(&data[2]) / 10.0;
 	dprintf(1,"battery_voltage: %2.2f, battery_current: %2.2f\n", inv->battery_voltage, inv->battery_current);
+	inv->battery_power = inv->battery_current * inv->battery_voltage;
+	dprintf(1,"battery_power: %3.2f\n",inv->battery_power);
 
-	/* x300 Active power grid/gen */
-	if (s->get_data(s,0x300,data,8)) return 1;
-#if 0
-	inv->active.grid.l1 = _getshort(&data[0]) * 100.0;
-	inv->active.grid.l2 = _getshort(&data[2]) * 100.0;
-	inv->active.grid.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"active grid: l1: %.1f, l2: %.1f, l3: %.1f\n", inv->active.grid.l1, inv->active.grid.l2, inv->active.grid.l3);
-#endif
-
-#if 0
-        float grid_current;             /* Grid/Gen watts */
-        float load_current;             /* loads watts */
-        float pv_current;               /* pv/wind/caes watts */
-        void *handle;                   /* Inverter Handle */
-        mybmm_module_open_t open;       /* Inverter Open */
-        mybmm_module_control_t control; /* Inverter Control */
-        mybmm_module_read_t read;       /* Inverter Read */
-        mybmm_module_write_t write;     /* Inverter Write */
-        mybmm_module_close_t close;     /* Inverter Close */
-        uint16_t state;                 /* Inverter State */
-        uint16_t capabilities;          /* Capability bits */
-//      int failed;                     /* Failed to update count */
-
-	uint8_t bits;
-
-
-	/* x301 Active power Sunny Island */
-	if (s->get_data(info,0x301,data,8)) return 1;
-	s->active.si.l1 = _getshort(&data[0]) * 100.0;
-	s->active.si.l2 = _getshort(&data[2]) * 100.0;
-	s->active.si.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"active si: l1: %.1f, l2: %.1f, l3: %.1f\n", s->active.si.l1, s->active.si.l2, s->active.si.l3);
-
-	/* x302 Reactive power grid/gen */
-	if (s->get_data(info,0x302,data,8)) return 1;
-	s->reactive.grid.l1 = _getshort(&data[0]) * 100.0;
-	s->reactive.grid.l2 = _getshort(&data[2]) * 100.0;
-	s->reactive.grid.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"reactive grid: l1: %.1f, l2: %.1f, l3: %.1f\n", s->reactive.grid.l1, s->reactive.grid.l2, s->reactive.grid.l3);
-
-	/* x303 Reactive power Sunny Island */
-	if (s->get_data(info,0x303,data,8)) return 1;
-	s->reactive.si.l1 = _getshort(&data[0]) * 100.0;
-	s->reactive.si.l2 = _getshort(&data[2]) * 100.0;
-	s->reactive.si.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"reactive si: l1: %.1f, l2: %.1f, l3: %.1f\n", s->reactive.si.l1, s->reactive.si.l2, s->reactive.si.l3);
-
-	/* 0x304 OutputVoltage - L1 / L2 / Output Freq */
-	s->get_data(info,0x304,data,8);
-	s->voltage.l1 = _getshort(&data[0]) / 10.0;
-	s->voltage.l2 = _getshort(&data[2]) / 10.0;
-	s->voltage.l3 = _getshort(&data[4]) / 10.0;
-	s->frequency = _getshort(&data[6]) / 100.0;
-	dprintf(1,"voltage: l1: %.1f, l2: %.1f, l3: %.1f\n", s->voltage.l1, s->voltage.l2, s->voltage.l3);
-	dprintf(1,"frequency: %.1f\n",s->frequency);
-
-	s->battery_temp = _getshort(&data[4]) / 10.0;
-	s->battery_soc = _getshort(&data[6]) / 10.0;
-	dprintf(1,"battery_voltage: %.1f\n", s->battery_voltage);
-	dprintf(1,"battery_current: %.1f\n", s->battery_current);
-	dprintf(1,"battery_temp: %.1f\n", s->battery_temp);
-	dprintf(1,"battery_soc: %.1f\n", s->battery_soc);
-	s->conf->battery_voltage = s->battery_voltage;
-
-	/* 0x306 SOH battery / Charging procedure / Operating state / active Error Message / Battery Charge Voltage Set-point */
-	s->get_data(info,0x306,data,8);
-	s->battery_soh = _getshort(&data[0]);
-	s->charging_proc = data[2];
-	s->inv->state = data[3];
-	s->errmsg = _getshort(&data[4]);
-	s->battery_cvsp = _getshort(&data[6]) / 10.0;
-	dprintf(1,"battery_soh: %.1f, charging_proc: %d, state: %d, errmsg: %d, battery_cvsp: %.1f\n",
-		s->battery_soh, s->charging_proc, s->inv->state, s->errmsg, s->battery_cvsp);
-
-	/* 0x307 Relay state / Relay function bit 1 / Relay function bit 2 / Synch-Bits */
-	s->get_data(info,0x307,data,8);
-#define SET(m,b) { s->bits.m = ((bits & b) != 0); dprintf(1,"bits.%s: %d\n",#m,s->bits.m); }
-	bits = data[0];
-	dump_bits("data[0]",bits);
-	SET(relay1,   0x0001);
-	SET(relay2,   0x0002);
-	SET(s1_relay1,0x0004);
-	SET(s1_relay2,0x0008);
-	SET(s2_relay1,0x0010);
-	SET(s2_relay1,0x0020);
-	SET(s3_relay1,0x0040);
-	SET(s3_relay1,0x0080);
-	bits = data[1];
-	dump_bits("data[1]",bits);
-	SET(GnRn,     0x0001);
-	SET(s1_GnRn,  0x0002);
-	SET(s2_GnRn,  0x0004);
-	SET(s3_GnRn,  0x0008);
-	bits = data[2];
-	dump_bits("data[2]",bits);
-	SET(AutoGn,    0x0001);
-	SET(AutoLodExt,0x0002);
-	SET(AutoLodSoc,0x0004);
-	SET(Tm1,       0x0008);
-	SET(Tm2,       0x0010);
-	SET(ExtPwrDer, 0x0020);
-	SET(ExtVfOk,   0x0040);
-	SET(GdOn,      0x0080);
-	bits = data[3];
-	dump_bits("data[3]",bits);
-	SET(Error,     0x0001);
-	SET(Run,       0x0002);
-	SET(BatFan,    0x0004);
-	SET(AcdCir,    0x0008);
-	SET(MccBatFan, 0x0010);
-	SET(MccAutoLod,0x0020);
-	SET(Chp,       0x0040);
-	SET(ChpAdd,    0x0080);
-	bits = data[4];
-	dump_bits("data[4]",bits);
-	SET(SiComRemote,0x0001);
-	SET(OverLoad,  0x0002);
-	bits = data[5];
-	dump_bits("data[5]",bits);
-	SET(ExtSrcConn,0x0001);
-	SET(Silent,    0x0002);
-	SET(Current,   0x0004);
-	SET(FeedSelfC, 0x0008);
-
-	/* 0x308 TotLodPwr */
-	s->get_data(info,0x308,data,8);
-	s->load.l1 = _getshort(&data[0]) * 100.0;
-	s->load.l2 = _getshort(&data[2]) * 100.0;
-	s->load.l3 = _getshort(&data[4]) * 100.0;
-	dprintf(1,"load: l1: %.1f, l2: %.1f, l3: %.1f\n",s->load.l1, s->load.l2, s->load.l3);
-
-	/* 0x309 AC2 Voltage L1 / AC2 Voltage L2 / AC2 Voltage L3 / AC2 Frequency */
-	s->get_data(info,0x309,data,8);
-	s->ac2.l1 = _getshort(&data[0]) / 10.0;
-	s->ac2.l2 = _getshort(&data[2]) / 10.0;
-	s->ac2.l3 = _getshort(&data[4]) / 10.0;
-	s->ac2_frequency = _getshort(&data[6]) / 100.0;
-	dprintf(1,"ac2: l1: %.1f, l2: %.1f, l3: %.1f\n",s->ac2.l1, s->ac2.l2, s->ac2.l3);
-	dprintf(1,"ac2 frequency: %.1f\n",s->ac2_frequency);
+	/* 0x308 TotLodPwr L1/L2/L3 */
+	s->get_data(s,0x308,data,8);
+	inv->load_power = (_getshort(&data[0]) * 100.0) + (_getshort(&data[2]) * 100.0) + (_getshort(&data[4]) * 100.0);
+	dprintf(1,"load_power: %3.2f\n",inv->load_power);
 
 	/* 0x30A PVPwrAt / GdCsmpPwrAt / GdFeedPwr */
-	s->get_data(info,0x30a,data,8);
-	s->PVPwrAt = _getshort(&data[0]) / 10.0;
-	s->GdCsmpPwrAt = _getshort(&data[0]) / 10.0;
-	s->GdFeedPwr = _getshort(&data[0]) / 10.0;
-	dprintf(1,"PVPwrAt: %.1f\n", s->PVPwrAt);
-	dprintf(1,"GdCsmpPwrAt: %.1f\n", s->GdCsmpPwrAt);
-	dprintf(1,"GdFeedPwr: %.1f\n", s->GdFeedPwr);
-#endif
+	s->get_data(s,0x30a,data,8);
+	inv->site_power = _getshort(&data[0]) * 100.0;
+	dprintf(1,"site_power: %3.2f\n",inv->site_power);
 	return 0;
 }
 

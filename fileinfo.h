@@ -20,5 +20,24 @@ typedef struct FileInfo FILEINFO;
 
 char *os_fnparse(char *filespec,char *defspec,char *field);
 void os_fnsplit(FILEINFO *info,char *spec);
+char *os_fnmerge(char *name, FILEINFO *pi);
+
+/* Define the directory seperator in filenames */
+#ifdef vms
+#define SLASH_CHAR ''
+#define SLASH_STRING ""
+#define OS_STATUS_SUCCESS       1
+#define OS_STATUS_ERROR         2
+#else
+#define OS_STATUS_SUCCESS       0
+#define OS_STATUS_ERROR         1
+#ifdef MS_DOS
+#define SLASH_CHAR '\\'
+#define SLASH_STRING "\\"
+#else
+#define SLASH_CHAR '/'
+#define SLASH_STRING "/"
+#endif
+#endif
 
 #endif

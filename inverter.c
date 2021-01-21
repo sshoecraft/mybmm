@@ -99,19 +99,8 @@ static void get_tab(mybmm_config_t *conf, char *name,mybmm_inverter_t *inv) {
 	return;
 }
 
-int inverter_init(mybmm_config_t *conf) {
-	mybmm_inverter_t *inv;
+int inverter_add(mybmm_config_t *conf, mybmm_inverter_t *inv) {
 	mybmm_module_t *mp, *tp;
-
-	/* Get the inverter config, if any (not an error if not found) */
-	if (!cfg_get_item(conf->cfg,"inverter","type")) return 0;
-
-	inv = calloc(1,sizeof(*inv));
-	if (!inv) {
-		perror("calloc inverter\n");
-		return 1;
-	}
-	get_tab(conf,"inverter",inv);
 
 	/* Get the transport */
 	tp = mybmm_load_module(conf,inv->transport,MYBMM_MODTYPE_TRANSPORT);
@@ -147,6 +136,22 @@ int inverter_init(mybmm_config_t *conf) {
 	dprintf(3,"done!\n");
 	return 0;
 }
+
+int inverter_init(mybmm_config_t *conf) {
+	mybmm_inverter_t *inv;
+
+	/* Get the inverter config, if any (not an error if not found) */
+	if (!cfg_get_item(conf->cfg,"inverter","type")) return 0;
+
+	inv = calloc(1,sizeof(*inv));
+	if (!inv) {
+		perror("calloc inverter\n");
+		return 1;
+	}
+	get_tab(conf,"inverter",inv);
+	return inverter_add(conf,inv);
+}
+
 
 int inverter_start_update(mybmm_config_t *conf) {
 	pthread_attr_t attr;

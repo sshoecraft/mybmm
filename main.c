@@ -11,18 +11,21 @@ LICENSE file in the root directory of this source tree.
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <errno.h>
 #include <ctype.h>
 #include <dlfcn.h>
 #include <sys/signal.h>
+#include <sys/types.h>
+#include <pwd.h>
 #include "mybmm.h"
 #include "log.h"
+#include "fileinfo.h"
+#include "battery.h"
 
 int debug = 0;
-
-void display(struct mybmm_config *conf);
 
 volatile uint8_t reconf;
 void usr1_handler(int signo) {
@@ -35,47 +38,68 @@ void usr1_handler(int signo) {
 void usage(char *name) {
 	printf("usage: %s [-acjJrwlh] [-f filename] [-b <bluetooth mac addr | -i <ip addr>] [-o output file]\n",name);
 	printf("arguments:\n");
+	printf("  -b <type> specify battery chem (1=lion, 2=lfp, 3=lit)\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
 #endif
+	printf("  -c <filename> specify configuration file\n");
+	printf("  -l <filename> specify log file\n");
 	printf("  -h		this output\n");
-	printf("  -t <transport:target> transport & target\n");
-	printf("  -e <opts>	transport-specific opts\n");
+	printf("  -i <type:transport:target> specify inverter");
+	printf("  -p <type:transport:target> specify cell monitor\n");
 }
 
-int main(int argc, char **argv) {
-	int opt,inv_reported,packs_reported,cell,in_range,npacks;
-	char type[MYBMM_MODULE_NAME_LEN+1],transport[MYBMM_MODULE_NAME_LEN+1],target[MYBMM_TARGET_LEN+1];
-//	char *opts;
-	mybmm_config_t *conf;
-	mybmm_inverter_t *inv;
-	mybmm_pack_t *pp;
+static mybmm_config_t *init(int argc, char **argv) {
+	int opt,battery_chem;
+	char inv_type[MYBMM_MODULE_NAME_LEN+1],inv_transport[MYBMM_MODULE_NAME_LEN+1],inv_target[MYBMM_TARGET_LEN+1];
+	char pack_type[MYBMM_MODULE_NAME_LEN+1],pack_transport[MYBMM_MODULE_NAME_LEN+1],pack_target[MYBMM_TARGET_LEN+1];
 	sigset_t set;
-	float cell_total, cell_min, cell_max, cell_diff, cell_avg;
-	float min_cap,pack_voltage_total,pack_current_total,pack_capacity_total;
-	uint32_t mask;
-	time_t start,end;
-	char *configfile;
+	mybmm_config_t *conf;
+	char *configfile,*logfile;
+	int test =0;
+	int uid;
+	struct passwd *pw;
+	char temp[256];
 
-//	opts = 0;
-	type[0] = transport[0] = target[0] = 0;
-	configfile = 0;
-	while ((opt=getopt(argc, argv, "d:c:p:e:h")) != -1) {
+	battery_chem = -1;
+	inv_type[0] = inv_transport[0] = inv_target[0] = 0;
+	pack_type[0] = pack_transport[0] = pack_target[0] = 0;
+	configfile = logfile = 0;
+	while ((opt=getopt(argc, argv, "b:d:c:l:i:p:e:ht")) != -1) {
 		switch (opt) {
+		case 'b':
+			battery_chem=atoi(optarg);
+			break;
 		case 'd':
 			debug=atoi(optarg);
 			break;
 		case 'c':
 			configfile=optarg;
 			break;
-                case 'p':
-			strncpy(type,strele(0,":",optarg),sizeof(type)-1);
-			strncpy(transport,strele(1,":",optarg),sizeof(transport)-1);
-			strncpy(target,strele(2,":",optarg),sizeof(target)-1);
-			if (!strlen(type) || !strlen(transport) || !strlen(target)) {
+		case 'l':
+			logfile=optarg;
+			break;
+		case 't':
+			test=1;
+			break;
+                case 'i':
+			strncpy(inv_type,strele(0,":",optarg),sizeof(inv_type)-1);
+			strncpy(inv_transport,strele(1,":",optarg),sizeof(inv_transport)-1);
+			strncpy(inv_target,strele(2,":",optarg),sizeof(inv_target)-1);
+			if (!strlen(inv_type) || !strlen(inv_transport) || !strlen(inv_target)) {
 				printf("error: format is type:transport:target\n");
 				usage(argv[0]);
-				return 1;
+				return 0;
+			}
+			break;
+                case 'p':
+			strncpy(pack_type,strele(0,":",optarg),sizeof(pack_type)-1);
+			strncpy(pack_transport,strele(1,":",optarg),sizeof(pack_transport)-1);
+			strncpy(pack_target,strele(2,":",optarg),sizeof(pack_target)-1);
+			if (!strlen(pack_type) || !strlen(pack_transport) || !strlen(pack_target)) {
+				printf("error: format is type:transport:target\n");
+				usage(argv[0]);
+				return 0;
 			}
 			break;
 #if 0
@@ -90,24 +114,80 @@ int main(int argc, char **argv) {
                 }
 	}
 
-	/* Create the config */
-	conf = calloc(sizeof(*conf),1);
-	if (!conf) {
-		perror("calloc conf");
-		return 1;
-	}
-	conf->modules = list_create();
-	conf->packs = list_create();
-
-	printf("opening log...\n");
-	log_open("mybmm","mybmm.log",LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
-	log_write(LOG_DEBUG,"testing");
-	printf("exiting...\n");
+	/* Open logfile if specified */
+	if (logfile) log_open("mybmm",logfile,LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
 
 	/* Get config */
-	conf = get_config((configfile ? configfile : "mybmm.conf"));
+	if (!configfile) {
+		if (access("/etc/mybmm.conf",R_OK) == 0) {
+			configfile="/etc/mybmm.conf";
+		} else if (access("/usr/local/etc/mybmm.conf",R_OK) == 0) {
+			configfile="/usr/local/etc/mybmm.conf";
+		} else {
+			/* Get the uid of this process */
+			uid = getuid();
+			DLOG(LOG_DEBUG,"uid: %ld\n",uid);
+
+			if (uid) {
+				/* Get the password entry for this uid */
+				pw = getpwuid(uid);
+				if (pw) {
+					sprintf(temp,"%s/etc/mybmm.conf",pw->pw_dir);
+					DDLOG("temp: %s\n", temp);
+					if (access(temp,R_OK)==0) {
+						configfile=temp;
+					} else {
+						sprintf(temp,"%s/mybmm.conf",pw->pw_dir);
+						if (access(temp,R_OK)==0) {
+							configfile=temp;
+						} else if (access("mybmm.conf",R_OK)==0) {
+							configfile="mybmm.conf";
+						}
+					}
+				}
+			}
+		}
+	}
+	conf = get_config(configfile);
 	dprintf(4,"conf: %p\n", conf);
-	if (!conf) return 1;
+	if (!conf) return 0;
+
+	DDLOG("battery_chem: %d\n",battery_chem);
+	if (battery_chem >= 0) {
+		conf->battery_chem = battery_chem;
+		conf->cell_low = conf->cell_crit_low = conf->cell_high = conf->cell_crit_high = -1;
+		conf->c_rate = -1;
+		battery_init(conf);
+	}
+
+	if (strlen(inv_type)) {
+		mybmm_inverter_t *inv;
+		inv = calloc(1,sizeof(*inv));
+		if (!inv) {
+			perror("calloc inverter");
+			return 0;
+		}
+		strcpy(inv->type,inv_type);
+		strcpy(inv->transport,inv_transport);
+		strcpy(inv->target,inv_target);
+		inverter_add(conf,inv);
+	}
+
+	if (strlen(pack_type)) {
+		mybmm_pack_t *pack;
+		pack = calloc(1,sizeof(*pack));
+		if (!pack) {
+			perror("calloc packerter");
+			return 0;
+		}
+		strcpy(pack->type,pack_type);
+		strcpy(pack->transport,pack_transport);
+		strcpy(pack->target,pack_target);
+		pack_add(conf,"pack",pack);
+		pack_init(conf);
+	}
+
+	if (test) return 0;
 
 	/* Ignore SIGPIPE */
         sigemptyset(&set);
@@ -117,6 +197,28 @@ int main(int argc, char **argv) {
 	/* USR causes config re-read (could also check file modification time) */
 	reconf = 0;
         signal(SIGUSR1, usr1_handler);
+
+	return conf;
+}
+
+void display(struct mybmm_config *conf);
+
+int main(int argc, char **argv) {
+	int inv_reported,packs_reported,cell,in_range,npacks;
+	mybmm_config_t *conf;
+	mybmm_inverter_t *inv;
+	mybmm_pack_t *pp;
+	float cell_total, cell_min, cell_max, cell_diff, cell_avg;
+	float min_cap,pack_voltage_total,pack_current_total,pack_capacity_total;
+	uint32_t mask;
+	time_t start,end,diff;
+
+	/* Open an initial debug-only log to stdout */
+	log_open("mybmm",0,LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
+
+	/* Initialize system */
+	conf = init(argc,argv);
+	if (!conf) return 1;
 
 	while(1) {
 		if (reconf) {
@@ -142,7 +244,7 @@ int main(int argc, char **argv) {
 		}
 
 		in_range = 1;
-		pack_update_all(conf,15);
+		pack_update_all(conf,30);
 		pack_voltage_total = pack_current_total = pack_capacity_total = 0.0;
 		npacks = list_count(conf->packs);
 		list_reset(conf->packs);
@@ -208,8 +310,13 @@ int main(int argc, char **argv) {
 		/* If we dont have any inverts or packs, no sense continuing... */
 		dprintf(1,"inv_reported: %d, pack_reported: %d\n", inv_reported, packs_reported);
 		if (!inv_reported && !packs_reported) {
-			sleep(conf->interval);
-			continue;
+			if (!conf->filename) {
+				printf("no config file, no inverter specified and no pack specified, nothing to do!\n");
+				break;
+			} else {
+				sleep(conf->interval);
+				continue;
+			}
 		}
 
 		if (npacks) {
@@ -260,10 +367,10 @@ int main(int argc, char **argv) {
 		time(&end);
 
 		dprintf(3,"start: %d, end: %d, diff: %d, interval: %d\n",(int)start,(int)end,(int)end-(int)start,conf->interval);
-		opt = conf->interval - (end - start);
+		diff = conf->interval - (end - start);
 		if (end - start < conf->interval) {
-			dprintf(1,"Sleeping for %d seconds...\n",opt);
-			sleep(opt);
+			dprintf(1,"Sleeping for %d seconds...\n",(int)diff);
+			sleep(diff);
 		}
 	}
 

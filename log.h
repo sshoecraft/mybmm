@@ -36,12 +36,3 @@ char *log_nextname(void);
 #ifdef __cplusplus
 }
 #endif
-
-/* If DEBUG is non-zero */
-#if DEBUG
-#define DPRINTF(format, args...) printf("%s(%d): " format,__FUNCTION__,__LINE__, ## args)
-#define DLOG(level, format, args...) log_write(level, "%s(%d): " format, __FUNCTION__, __LINE__, ## args)
-#else
-#define DPRINTF(format, args...) /* noop */
-#define DLOG(level, format, args...) /* noop */
-#endif

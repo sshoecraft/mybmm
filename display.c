@@ -113,7 +113,7 @@ void display(struct mybmm_config *conf) {
 		x++;
 	}
 
-	if (!debug) system("clear; echo \"**** $(date) ****\"");
+//	if (!debug) system("clear; echo \"**** $(date) ****\"");
 
 	x = 0;
 	inv = conf->inverter;
@@ -129,9 +129,11 @@ void display(struct mybmm_config *conf) {
 			p = "Error";
 		}
 		printf("State: %s\n", p);
+#if 0
 		if (strcmp(p,"Error") != 0) {
 			printf("Charge voltage: %2.1f, Discharge voltage: %2.1f\n", conf->charge_voltage, conf->discharge_voltage);
 		}
+#endif
 //	} else {
 //		dprintf(0,"\nInverter: None\n");
 	}

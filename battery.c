@@ -1,0 +1,44 @@
+
+#include "mybmm.h"
+#include "battery.h"
+
+int battery_init(mybmm_config_t *conf) {
+	/* Set battery chem parms if not set by user */
+	switch(conf->battery_chem) {
+	default:
+	case BATTERY_CHEM_LITHIUM:
+		dprintf(1,"battery_chem: LITHIUM\n");
+		if (conf->cell_high < 0) conf->cell_high = 4.15;
+		if (conf->cell_crit_high < 0) conf->cell_crit_high = 4.2;
+		if (conf->cell_low < 0) conf->cell_low = 3.0;
+		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.95;
+		if (conf->c_rate < 0) conf->c_rate = .5;
+//		if (conf->d_rate < 0) conf->d_rate = 2;
+		break;
+	case BATTERY_CHEM_LIFEPO4:
+		dprintf(1,"battery_chem: LIFEPO4\n");
+		if (conf->cell_low < 0) conf->cell_low = 3.0;
+		if (conf->cell_crit_low < 0) conf->cell_crit_low = 2.8;
+		if (conf->cell_high < 0) conf->cell_high = 3.4;
+		if (conf->cell_crit_high < 0) conf->cell_crit_high = 3.65;
+		if (conf->c_rate < 0) conf->c_rate = .5;
+//		if (conf->d_rate < 0) conf->d_rate = 25;
+		break;
+	case BATTERY_CHEM_TITANATE:
+		dprintf(1,"battery_chem: TITANATE\n");
+		if (conf->cell_low < 0) conf->cell_low = 2.0;
+		if (conf->cell_crit_low < 0) conf->cell_crit_low = 1.8;
+		if (conf->cell_high < 0) conf->cell_high = 2.65;
+		if (conf->cell_crit_high < 0) conf->cell_crit_high = 2.85;
+		if (conf->c_rate < 0) conf->c_rate = 10;
+//		if (conf->d_rate < 0) conf->d_rate = 100;
+		break;
+	}
+	dprintf(1,"cell_low: %.1f\n", conf->cell_low);
+	dprintf(1,"cell_crit_low: %.1f\n", conf->cell_crit_low);
+	dprintf(1,"cell_high: %.1f\n", conf->cell_high);
+	dprintf(1,"cell_crit_high: %.1f\n", conf->cell_crit_high);
+	dprintf(1,"c_rate: %.1f\n", conf->c_rate);
+
+	return 0;
+}

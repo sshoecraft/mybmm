@@ -1,16 +1,16 @@
 
-PROG=mybmm
+PROG=$(shell basename $(shell pwd))
 INVERTERS=si.c
 CELLMONS=jbd.c preh.c jk.c
 TRANSPORTS=can.c can_ip.c dsfuncs.c serial.c ip.c bt.c
-UTILS=worker.c uuid.c list.c utils.c cfg.c conv.c log.c fnparse.c fnsplit.c stredit.c
-SRCS=main.c display.c config.c db.c module.c inverter.c pack.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
+UTILS=worker.c uuid.c list.c utils.c cfg.c conv.c log.c fnparse.c fnsplit.c stredit.c fnmerge.c
+SRCS=main.c display.c config.c db.c module.c inverter.c pack.c battery.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
 OBJS=$(SRCS:.c=.o)
 #LIBS+=-lsqlite3 -lgattlib -lglib-2.0 -pthread -ldl
 LIBS+=-ldl -lgattlib -lglib-2.0 -lpthread -lsqlite3
 #CFLAGS=-DMYBMM
 #CFLAGS+=-Wall -O2 -pipe
-CFLAGS+=-Wall -g -DDEBUG
+CFLAGS+=-Wall -g -DDEBUG=1
 LDFLAGS+=-rdynamic
 
 all: $(PROG)
@@ -29,7 +29,7 @@ debug: $(PROG)
 	gdb $(PROG)
 
 install: $(PROG)
-	install -m 755 -o bin -g bin $(NAME) /usr/sbin
+	install -m 755 -o bin -g bin $(PROG) /usr/local/bin
 
 clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)

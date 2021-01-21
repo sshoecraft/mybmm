@@ -13,14 +13,9 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 struct mybmm_pack;
 typedef struct mybmm_pack mybmm_pack_t;
 
-enum BATTERY_CHEMS {
-	BATTERY_CHEM_UNKNOWN,
-	BATTERY_CHEM_LITHIUM,
-	BATTERY_CHEM_LIFEPO4,
-	BATTERY_CHEM_TITANATE,
-};
-
 struct mybmm_config {
+	char username[64];
+	char home_dir[256];
 	char *filename;			/* Config filename */
 	void *logfp;			/* Log filehandle */
 	char db_name[32];		/* DB Name */

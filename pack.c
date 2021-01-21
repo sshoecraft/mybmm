@@ -197,8 +197,7 @@ int pack_init(mybmm_config_t *conf) {
 	}
 
 	/* If no packs, return now */
-	dprintf(1,"i: %d\n", i);
-	if (!i) return 0;
+	if (list_count(conf->packs) == 0) return 0;
 
 	/* Create the pack worker pool */
 	conf->pack_pool = worker_create_pool(list_count(conf->packs));

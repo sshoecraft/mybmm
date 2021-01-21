@@ -3,13 +3,13 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "log.h"
-#include "mybmm.h"
-
 #ifdef DEBUG
 #undef DEBUG
 #endif
-#define DEBUG 1
+//#define DEBUG 1
+
+#include "mybmm.h"
+#include "log.h"
 
 #define DEFAULT_OPTIONS		LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR
 static FILE *logfp = (FILE *) 0;
@@ -17,10 +17,14 @@ static int logopts = DEFAULT_OPTIONS;
 static char logfile[256];
 static char message[32767];
 
+#if 0
 static char *month_names[12] = {
 	"JAN","FEB","MAR","APR","MAY","JUN",
 	"JUL","AUG","SEP","OCT","NOV","DEC"
 };
+#endif
+
+char *os_fnparse(char *filespec,char *defspec,char *field);
 
 int _os_get_times(int type, char *dt, int len) {
 	struct tm *tptr;
@@ -96,15 +100,16 @@ static __inline void _dispopts(int type) {
 int log_open(char *ident,char *filename,int opts) {
 
 #if DEBUG
-	dprintf(1,"ident: %p, filename: %p,opts: %x\n",ident,filename,opts);
+	DPRINTF("ident: %p, filename: %p,opts: %x\n",ident,filename,opts);
 	_dispopts(opts);
+	exit(0);
 #endif
 
 	if (filename) {
 		char *op;
 
 		strcpy(logfile,os_fnparse(filename,0,0));
-		dprintf(1,"logging to file: %s\n",logfile);
+		DPRINTF("logging to file: %s\n",logfile);
 
 		/* Open the file */
 		op = (opts & LOG_CREATE ? "w+" : "a+");
@@ -114,25 +119,26 @@ int log_open(char *ident,char *filename,int opts) {
 			return 1;
 		}
 	} else if (opts & LOG_WX) {
-		dprintf(1,"logging to wx\n");
+		DPRINTF("logging to wx\n");
 		logfp = (FILE *) ident;
 	} else if (opts & LOG_STDERR) {
-		dprintf(1,"logging to stderr\n");
+		DPRINTF("logging to stderr\n");
 		logfp = stderr;
 	} else {
-		dprintf(1,"logging to stdout\n");
+		DPRINTF("logging to stdout\n");
 		logfp = stdout;
 	}
 	logopts = opts;
 
-	dprintf(1,"log is opened.\n");
+	DPRINTF("log is opened.\n");
 	return 0;
 }
 
+#if 0
 static void mytrim(char *string) {
 	register char *src,*dest;
 
-	dprintf(1,"before: >>>%s<<<\n",string);
+	DPRINTF("before: >>>%s<<<\n",string);
 
 	/* Trim the front */
 	src = string;
@@ -145,8 +151,9 @@ static void mytrim(char *string) {
 	while((dest >= string) && isspace((int)*dest)) dest--;
 	*(dest+1) = '\0';
 
-	dprintf(1,"after: >>>%s<<<\n",string);
+	DPRINTF("after: >>>%s<<<\n",string);
 }
+#endif
 
 typedef void (*func_t)(char *);
 
@@ -160,7 +167,7 @@ int log_write(int type,char *format,...) {
 	if (!logfp) return 1;
 
 	/* Do we even log this type? */
-	dprintf(1,"logopts: %0x, type: %0x\n",logopts,type);
+	DPRINTF("logopts: %0x, type: %0x\n",logopts,type);
 	if ( (logopts | type) != logopts) return 0;
 
 	/* get the error text asap before it's gone */
@@ -172,7 +179,7 @@ int log_write(int type,char *format,...) {
 	/* Prepend the time? */
 	ptr = message;
 	if (logopts & LOG_TIME || type & LOG_TIME) {
-		dprintf(1,"prepending time...\n");
+		DPRINTF("prepending time...\n");
 		os_get_logtimes(dt,sizeof(dt));
 		strcat(dt,"  ");
 		sprintf(ptr,"%s",dt);
@@ -181,43 +188,43 @@ int log_write(int type,char *format,...) {
 
 	/* If it's a warning, prepend warning: */
 	if (type & LOG_WARNING) {
-		dprintf(1,"prepending warning...\n");
+		DPRINTF("prepending warning...\n");
 		sprintf(ptr,"warning: ");
 		ptr += strlen(ptr);
 	}
 
 	/* If it's an error, prepend error: */
 	else if ((type & LOG_ERROR) || (type & LOG_SYSERR)) {
-		dprintf(1,"prepending error...\n");
+		DPRINTF("prepending error...\n");
 		sprintf(ptr,"error: ");
 		ptr += strlen(ptr);
 	}
 
 	/* Build the rest of the message */
-	dprintf(1,"adding message...\n");
+	DPRINTF("adding message...\n");
 	va_start(ap,format);
 	vsprintf(ptr,format,ap);
 	va_end(ap);
 
 	/* Trim */
-	mytrim(message);
+	trim(message);
 
 	/* If it's a system error, concat the system message */
 	if (type & LOG_SYSERR) {
-		dprintf(1,"adding error text...\n");
+		DPRINTF("adding error text...\n");
 		strcat(message,": ");
 		strcat(message, error);
 	}
 
 	/* Strip all CRs and LFs */
-	dprintf(1,"stripping newlines...\n");
+	DPRINTF("stripping newlines...\n");
 	for(ptr = message; *ptr; ptr++) {
 		if (*ptr == '\n' || *ptr == '\r')
 			strcpy(ptr,ptr+1);
 	}
 
 	/* Write the message */
-	dprintf(1,"message: %s\n",message);
+	DPRINTF("message: %s\n",message);
 	if (logopts & LOG_WX) {
 		func_t func = (func_t) logfp;
 		func(message);
@@ -262,12 +269,12 @@ char *log_nextname(void) {
 	strcpy(vfile,home_dir);
 	strcat(vfile,program_name);
 	strcat(vfile,".ctl");
-	dprintf(1,"log_nextname: vfile: %s\n",vfile);
+	DPRINTF("log_nextname: vfile: %s\n",vfile);
 
 	/* Restrict program name to 6 chars */
 	prefix[0] = 0;
 	strncat(prefix,program_name,sizeof(prefix)-1);
-	dprintf(1,"log_nextname: prefix: %s\n",prefix);
+	DPRINTF("log_nextname: prefix: %s\n",prefix);
 
 	/* Get the next name */
 	ptr = get_seq_filename(vfile,prefix,".log");

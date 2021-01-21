@@ -1,7 +1,14 @@
 
 #include <string.h>
+
+#ifdef DEBUG
+#undef DEBUG
+#endif
+//#define DEBUG 1
+
 #include "log.h"
 #include "fileinfo.h"
+#include "debug.h"
 
 void os_fnsplit(FILEINFO *info,char *spec) {
 	register char *ptr,*start,*end;
