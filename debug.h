@@ -6,11 +6,11 @@
 extern int debug;
 
 #ifdef DEBUG
-#include "log.h"
+#include "utils.h"
 
 //#define dprintf(level, format, args...) { if (debug >= level) printf("%s(%d): " format,__FUNCTION__,__LINE__, ## args); }
 #define dprintf(level, format, args...) { if (debug >= level) log_write(LOG_DEBUG, "%s(%d): " format, __FUNCTION__, __LINE__, ## args); }
-#define DPRINTF(format, args...) printf("%s(%d): " format,__FUNCTION__,__LINE__, ## args)x
+#define DPRINTF(format, args...) printf("%s(%d): " format,__FUNCTION__,__LINE__, ## args)
 #define DLOG(opts, format, args...) log_write(opts, "%s(%d): " format, __FUNCTION__, __LINE__, ## args)
 #define DDLOG(format, args...) log_write(LOG_DEBUG, "%s(%d): " format, __FUNCTION__, __LINE__, ## args)
 #else

@@ -8,7 +8,7 @@
  *************************************************************************/
 
 #include "list.h"
-#include "conv.h"
+//#include "conv.h"
 
 /* Define the item structure */
 #define CFG_KEYWORD_SIZE	64
@@ -91,6 +91,26 @@ struct cfg_proctab *cfg_combine_tabs(struct cfg_proctab *,struct cfg_proctab *);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifndef HAVE_CONV
+/* From conv.h */
+enum DATA_TYPE {
+        DATA_TYPE_UNKNOWN = 0,          /* Unknown */
+        DATA_TYPE_CHAR,                 /* Array of chars w/no null */
+        DATA_TYPE_STRING,               /* Array of chars w/null */
+        DATA_TYPE_BYTE,                 /* char -- 8 bit */
+        DATA_TYPE_SHORT,                /* Short -- 16 bit */
+        DATA_TYPE_INT,                  /* Integer -- 16 | 32 bit */
+        DATA_TYPE_LONG,                 /* Long -- 32 bit */
+        DATA_TYPE_QUAD,                 /* Quadword - 64 bit */
+        DATA_TYPE_FLOAT,                /* Float -- 32 bit */
+        DATA_TYPE_DOUBLE,               /* Double -- 64 bit */
+        DATA_TYPE_LOGICAL,              /* (int) Yes/No,True/False,on/off */
+        DATA_TYPE_DATE,                 /* (char 23) DD-MMM-YYYY HH:MM:SS.HH */
+        DATA_TYPE_LIST,                 /* Itemlist */
+        DATA_TYPE_MAX                   /* Max data type number */
+};
 #endif
 
 #endif /* __CFG_H */

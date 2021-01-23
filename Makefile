@@ -1,6 +1,6 @@
 
 BLUETOOTH=no
-MQTT=no
+MQTT=yes
 
 PROG=$(shell basename $(shell pwd))
 INVERTERS=si.c
@@ -10,27 +10,30 @@ ifneq ($(BLUETOOTH),yes)
 _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
-UTILS=worker.c uuid.c list.c utils.c cfg.c conv.c log.c fnparse.c fnsplit.c stredit.c fnmerge.c
+UTILS=worker.c uuid.c list.c utils.c cfg.c
 SRCS=main.c display.c config.c db.c module.c inverter.c pack.c battery.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
-OBJS=$(SRCS:.c=.o)
-#LIBS+=-lsqlite3 -lgattlib -lglib-2.0 -pthread -ldl
-LIBS+=-ldl -lgattlib -lglib-2.0 -lpthread -lsqlite3
+LIBS+=-ldl -lpthread
 #CFLAGS=-DMYBMM
 #CFLAGS+=-Wall -O2 -pipe
 CFLAGS+=-Wall -g -DDEBUG=1
 LDFLAGS+=-rdynamic
+ifeq ($(BLUETOOTH),yes)
+CFLAGS+=-DBLUETOOTH
+LIBS+=-lgattlib -lglib-2.0 -lpthread
+endif
 ifeq ($(MQTT),yes)
 SRCS+=mqtt.c
 CFLAGS+=-DMQTT
 LIBS+=-lpaho-mqtt3c
 endif
+OBJS=$(SRCS:.c=.o)
 
 all: $(PROG)
 
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
-#$(OBJS): Makefile
+$(OBJS): Makefile
 
 gendb_bms.c:
 	gendb -f siu -i id -n name bms

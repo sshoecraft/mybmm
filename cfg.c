@@ -1,4 +1,7 @@
 
+/* uncomment this if you have conv.c & conv.h */
+//#define HAVE_CONF
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,9 +9,10 @@
 #include <ctype.h>
 #include <errno.h>
 #include "cfg.h"
-#include "conv.h"
 #include "utils.h"
-
+#ifdef HAVE_CONF
+#include "conv.h"
+#endif
 
 #ifdef DEBUG
 #undef DEBUG
@@ -16,21 +20,26 @@
 //#define DEBUG 1
 
 #if DEBUG
-#define dprintf(format, args...) printf("%s(%d): " format "\n",__FUNCTION__,__LINE__, ## args)
+#define dprintf(format, args...) { printf("%s(%d): " format "\n",__FUNCTION__,__LINE__, ## args); fflush(stdout); }
 #else
 #define dprintf(format, args...) /* noop */
 #endif
 
-#if 0
-static void conv_type(int stype,void *src,int slen,int dtype,void *dest,int dlen) {
+char *typenames[] = { "Unknown","char","string","byte","short","int","long","quad","float","double","logical","date","list" };
+
+#ifndef HAVE_CONV
+static void conv_type(int dtype,void *dest,int dlen,int stype,void *src,int slen) {
+	char temp[1024];
 	int *iptr;
 	float *fptr;
+	double *dptr;
 	char *sptr;
 	int len;
 
 	dprintf("stype: %d, src: %p, slen: %d, dtype: %d, dest: %p, dlen: %d",
 		stype,src,slen,dtype,dest,dlen);
 
+	dprintf("stype: %s, dtype: %s\n", typenames[stype],typenames[dtype]);
 	switch(dtype) {
 	case DATA_TYPE_INT:
 		iptr = dest;
@@ -57,13 +66,38 @@ static void conv_type(int stype,void *src,int slen,int dtype,void *dest,int dlen
 				*iptr = 0;
 		}
 	case DATA_TYPE_STRING:
-		sptr = dest;
-		sptr[0] = 0;
-		len = slen > dlen ? dlen : slen;
-		strncat(sptr,src,len);
+		switch(stype) {
+		case DATA_TYPE_INT:
+			iptr = src;
+			sprintf(temp,"%d",*iptr);
+			break;
+		case DATA_TYPE_FLOAT:
+			fptr = src;
+			sprintf(temp,"%f",*fptr);
+			break;
+		case DATA_TYPE_DOUBLE:
+			dptr = src;
+			sprintf(temp,"%f",*dptr);
+			break;
+		case DATA_TYPE_LOGICAL:
+			iptr = src;
+			sprintf(temp,"%s",*iptr ? "yes" : "no");
+			break;
+		case DATA_TYPE_STRING:
+			temp[0] = 0;
+			len = slen > dlen ? dlen : slen;
+			strncat(temp,src,len);
+			break;
+		default:
+			printf("conv_type: unknown src type: %d\n", stype);
+			temp[0] = 0;
+			break;
+		}
+		dprintf("temp: %s\n",temp);
+		strcpy((char *)dest,temp);
 		break;
 	default:
-		printf("conv_type: unknown type: %d\n", dtype);
+		printf("conv_type: unknown dest type: %d\n", dtype);
 		break;
 	}
 }
@@ -514,8 +548,6 @@ CFG_SECTION *cfg_get_section(CFG_INFO *info,char *name) {
 int cfg_get_tab(CFG_INFO *info, struct cfg_proctab *tab) {
 	struct cfg_proctab *ent;
 	char *p;
-	void *sptr;
-	int stype,slen;
 	int i;
 
 	dprintf("cfg_get_tab: filename: %s",info->filename);
@@ -523,21 +555,14 @@ int cfg_get_tab(CFG_INFO *info, struct cfg_proctab *tab) {
 		ent = &tab[i];
 		p = cfg_get_item(info, ent->section, ent->keyword);
 		dprintf("p: %p, ent->def: %p", p, ent->def);
-		if (p) {
-			stype = DATA_TYPE_STRING;
-			sptr = p;
-			slen = strlen(p);
-		} else if (ent->def) {
-			stype = DATA_TYPE_STRING;
-			sptr = ent->def;
-			slen = ent->dlen;
-		} else {
-			continue;
+		if (!p) {
+			if (ent->def)
+				p = ent->def;
+			else 
+				continue;
 		}
-		dprintf("cfg_get_tab: section: %s, keyword: %s, value: %s",
-			ent->section, ent->keyword, p);
-		dprintf("sptr: %s", (char *)sptr);
-		conv_type(ent->type,ent->dest,ent->dlen,stype,sptr,slen);
+		dprintf("cfg_get_tab: section: %s, keyword: %s, value: %s", ent->section, ent->keyword, p);
+		conv_type(ent->type,ent->dest,ent->dlen,DATA_TYPE_STRING,p,strlen(p));
 	}
 
 	return 0;

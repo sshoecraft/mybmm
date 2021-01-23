@@ -14,8 +14,10 @@ struct mybmm_pack;
 typedef struct mybmm_pack mybmm_pack_t;
 
 struct mybmm_config {
-	char username[64];
-	char home_dir[256];
+	char mqtt_broker[64];		/* MQTT Broker URL */
+	char mqtt_topic[128];		/* MQTT Base Topic */
+	char mqtt_username[32];		/* MQTT Username */
+	char mqtt_password[32];		/* MQTT Password */
 	char *filename;			/* Config filename */
 	void *logfp;			/* Log filehandle */
 	char db_name[32];		/* DB Name */

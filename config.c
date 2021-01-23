@@ -7,6 +7,22 @@
 #include "cfg.h"
 #include "battery.h"
 
+int get_mqtt_conf(mybmm_config_t *conf) {
+	struct cfg_proctab tab[] = {
+		{ "mqtt", "broker", "Broker URL", DATA_TYPE_STRING,&conf->mqtt_broker,sizeof(conf->mqtt_broker), 0 },
+		{ "mqtt", "topic", "Topic", DATA_TYPE_STRING,&conf->mqtt_topic,sizeof(conf->mqtt_topic), 0 },
+		{ "mqtt", "username", "Broker username", DATA_TYPE_STRING,&conf->mqtt_username,sizeof(conf->mqtt_username), 0 },
+		{ "mqtt", "password", "Broker password", DATA_TYPE_STRING,&conf->mqtt_password,sizeof(conf->mqtt_password), 0 },
+		CFG_PROCTAB_END
+	};
+
+	cfg_get_tab(conf->cfg,tab);
+#ifdef DEBUG
+	if (debug) cfg_disp_tab(tab,0,1);
+#endif
+	return 0;
+}
+
 int read_config(mybmm_config_t *conf) {
         struct cfg_proctab myconf[] = {
 		{ "mybmm", "interval", "Time between updates", DATA_TYPE_INT, &conf->interval, 0, "20" },
@@ -44,6 +60,10 @@ int read_config(mybmm_config_t *conf) {
 	cfg_get_tab(conf->cfg,myconf);
 #ifdef DEBUG
 	if (debug) cfg_disp_tab(myconf,0,1);
+#endif
+
+#ifdef MQTT
+	if (get_mqtt_conf(conf)) return 1;
 #endif
 
 	dprintf(1,"db_name: %s\n", conf->db_name);

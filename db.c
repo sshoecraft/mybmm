@@ -1,4 +1,4 @@
-
+#if 0
 
 #include "mybmm.h"
 
@@ -56,3 +56,4 @@ int db_init(mybmm_config_t *conf, char *name) {
 	mybmm_load_module(conf,db_type,MYBMM_MODTYPE_DB);
 	return 0;
 }
+#endif

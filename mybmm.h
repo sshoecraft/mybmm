@@ -14,7 +14,6 @@
 #include "list.h"
 #include "worker.h"
 #include "debug.h"
-#include "log.h"
 
 //typedef unsigned char uint8_t;
 

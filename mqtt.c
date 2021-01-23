@@ -1,35 +1,132 @@
 
 #include <string.h>
-#include "MQTTClient.h"
+#include <MQTTClient.h>
+#include <MQTTAsync.h>
+#include <stdlib.h>
+#include "mybmm.h"
 #include "mqtt.h"
 #include "debug.h"
 
 #define TIMEOUT 1000L
 
-int mqtt_send(char *address, char *clientid, char *message, char *topic) {
+struct mqtt_session {
+	char address[64];
+	char clientid[32];
+	char topic[128];
+	MQTTClient c;
+};
+typedef struct mqtt_session mqtt_session_t;
+
+int mqtt_init(mybmm_config_t *conf) {
+	struct cfg_proctab tab[] = {
+		{ "mqtt", "broker", "Broker URL", DATA_TYPE_STRING,&conf->mqtt_broker,sizeof(conf->mqtt_broker), 0 },
+		{ "mqtt", "topic", "Topic", DATA_TYPE_STRING,&conf->mqtt_topic,sizeof(conf->mqtt_topic), 0 },
+		{ "mqtt", "username", "Broker username", DATA_TYPE_STRING,&conf->mqtt_username,sizeof(conf->mqtt_username), 0 },
+		{ "mqtt", "password", "Broker password", DATA_TYPE_STRING,&conf->mqtt_password,sizeof(conf->mqtt_password), 0 },
+		CFG_PROCTAB_END
+	};
+
+	cfg_get_tab(conf->cfg,tab);
+#ifdef DEBUG
+	if (debug) cfg_disp_tab(tab,0,1);
+#endif
+	return 0;
+}
+
+struct mqtt_session *mqtt_new(char *address, char *clientid, char *topic) {
+	struct mqtt_session *s;
 	MQTTClient client;
+	int rc;
+
+	dprintf(1,"address: %s, clientid: %s, topic: %s\n", address, clientid, topic);
+	rc = MQTTClient_create(&client, address, clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
+	if (rc != MQTTCLIENT_SUCCESS) {
+		lprintf(LOG_SYSERR,"MQTTClient_create");
+		return 0;
+	}
+	s = calloc(1,sizeof(*s));
+	if (!s) {
+		lprintf(LOG_SYSERR,"calloc");
+		MQTTClient_destroy(&client);
+		return 0;
+	}
+	strncat(s->address,address,sizeof(s->address)-1);
+	strncat(s->clientid,clientid,sizeof(s->clientid)-1);
+	strncat(s->topic,topic,sizeof(s->topic)-1);
+	s->c = client;
+
+	return s;
+}
+
+int mqtt_connect(mqtt_session_t *s, int interval) {
 	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+	int rc;
+
+	if (!s) return 1;
+	conn_opts.keepAliveInterval = interval;
+	conn_opts.cleansession = 1;
+	rc = MQTTClient_connect(s->c, &conn_opts);
+	dprintf(1,"rc: %d\n", rc);
+	if (rc != MQTTCLIENT_SUCCESS) {
+		lprintf(LOG_SYSERR,"MQTTClient_connect");
+		return 1;
+	}
+	return 0;
+}
+
+int mqtt_disconnect(mqtt_session_t *s, int timeout) {
+	int rc;
+
+	if (!s) return 1;
+	rc = MQTTClient_disconnect(s->c, timeout);
+	dprintf(1,"rc: %d\n", rc);
+	return rc;
+}
+
+int mqtt_destroy(mqtt_session_t *s) {
+	if (!s) return 1;
+	MQTTClient_destroy(&s->c);
+	free(s);
+	return 0;
+}
+
+int mqtt_send(mqtt_session_t *s, char *message, int timeout) {
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
 	MQTTClient_deliveryToken token;
 	int rc;
 
-	MQTTClient_create(&client, address, clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
-	conn_opts.keepAliveInterval = 20;
-	conn_opts.cleansession = 1;
-	if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS) {
-		printf("Failed to connect, return code %d\n", rc);
-		return 1;
-	}
-	dprintf(1,"client: %s, message: %s, topic: %s\n", clientid, message, topic);
+	if (!s) return 1;
+	dprintf(1,"message: %s, timeout: %d\n", message, timeout);
 	pubmsg.payload = message;
 	pubmsg.payloadlen = strlen(message);
 	pubmsg.qos = 1;
 	pubmsg.retained = 1;
-	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
-	rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
+	rc = MQTTClient_publishMessage(s->c, s->topic, &pubmsg, &token);
+	dprintf(1,"rc: %d\n", rc);
+	if (rc != MQTTCLIENT_SUCCESS) {
+		lprintf(LOG_SYSERR,"MQTTClient_publishMessage");
+		return 1;
+	}
+	rc = MQTTClient_waitForCompletion(s->c, token, timeout * 1000);
+	dprintf(1,"rc: %d\n", rc);
+	if (rc != MQTTCLIENT_SUCCESS) {
+		lprintf(LOG_SYSERR,"MQTTClient_waitForCompletion");
+		return 1;
+	}
 	dprintf(1,"delivered message.\n");
-	MQTTClient_disconnect(client, TIMEOUT);
-	MQTTClient_destroy(&client);
+	return 0;
+}
+
+int mqtt_fullsend(char *address, char *clientid, char *message, char *topic) {
+	int rc = 1;
+	mqtt_session_t *s = mqtt_new(address, clientid, topic);
+	if (!s) return 1;
+	if (mqtt_connect(s,20)) goto mqtt_send_error;
+	if (mqtt_send(s,message,10)) goto mqtt_send_error;
+	rc = 0;
+mqtt_send_error:
+	mqtt_disconnect(s,10);
+	mqtt_destroy(s);
 	return rc;
 }
 

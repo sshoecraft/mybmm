@@ -180,11 +180,6 @@ int main(int argc, char **argv) {
 	uint32_t mask;
 	time_t start,end,diff;
 
-#if DEBUG_STARTUP
-	/* Open an initial debug-only log to stdout */
-	log_open("mybmm",0,LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
-#endif
-
 	/* Initialize system */
 	conf = init(argc,argv);
 	if (!conf) return 1;
