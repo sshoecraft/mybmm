@@ -37,7 +37,8 @@ struct mybmm_config {
 	float cell_high;		/* Cell charge high cutoff */
 	float cell_crit_high;		/* Cell critical high */
 	float capacity;			/* Total capacity, in AH (all packs) */
-	float c_rate;			/* Discharge current rate */
+	float c_rate;			/* Charge current rate */
+	float d_rate;			/* Discharge current rate */
 	float kwh;			/* Calculated kWh */
 	float soc;			/* State of Charge */
 	float soh;			/* State of Health */

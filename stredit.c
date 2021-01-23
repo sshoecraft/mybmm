@@ -27,6 +27,8 @@ static struct {
 	unsigned fill: 2;
 } edit_funcs;
 
+char *strele(int num,char *delimiter,char *string);
+
 char *stredit(char *string, char *list) {
 	static char return_info[1024];
 	char edit_list[255], *func, *src, *dest;
@@ -112,7 +114,7 @@ char *stredit(char *string, char *list) {
 		*(dest+1) = '\0';
 	}
 	if (edit_funcs.uncomment) {
-		for(src = (char *)&return_info; src != '\0'; src++) {
+		for(src = (char *)&return_info; *src != '\0'; src++) {
 			if (*src == '!') {
 				*src = '\0';
 				break;

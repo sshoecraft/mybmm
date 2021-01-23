@@ -1,0 +1,12 @@
+[Unit]
+Description=MyBMS Manager Service
+After=sshd.service network-online.target network.target rsyslog.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/opt/mybmm/bin/mybmm
+WorkingDirectory=/opt/mybmm/bin
+
+[Install]
+WantedBy=multi-user.target

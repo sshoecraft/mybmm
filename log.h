@@ -1,4 +1,7 @@
 
+#ifndef __MYBMM_LOG_H
+#define __MYBMM_LOG_H
+
 /*************************************************************************
  *
  * Logging functions
@@ -22,10 +25,9 @@
 #define LOG_ALL			0x7FFF	/* Whoa, Nellie */
 #define LOG_DEFAULT		(LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR)
 
+#define LOG_SYSERROR LOG_SYSERR
+
 /* Function definitions */
-#ifdef __cplusplus
-extern "C" {
-#endif
 int log_open(char *,char *,int);
 int log_read(char *,int);
 int log_write(int,char *,...);
@@ -33,6 +35,7 @@ int log_debug(char *,...);
 void log_close(void);
 void log_writeopts(void);
 char *log_nextname(void);
-#ifdef __cplusplus
-}
+
+#define lprintf(mask, format, args...) log_write(mask,format,## args)
+
 #endif

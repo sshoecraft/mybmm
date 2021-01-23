@@ -12,7 +12,7 @@
 #include "log.h"
 
 #define DEFAULT_OPTIONS		LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR
-static FILE *logfp = (FILE *) 0;
+FILE *logfp = (FILE *) 0;
 static int logopts = DEFAULT_OPTIONS;
 static char logfile[256];
 static char message[32767];
@@ -108,7 +108,8 @@ int log_open(char *ident,char *filename,int opts) {
 	if (filename) {
 		char *op;
 
-		strcpy(logfile,os_fnparse(filename,0,0));
+//		strcpy(logfile,os_fnparse(filename,0,0));
+		strcpy(logfile,filename);
 		DPRINTF("logging to file: %s\n",logfile);
 
 		/* Open the file */

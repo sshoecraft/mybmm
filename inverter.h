@@ -40,6 +40,7 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 #define MYBMM_INVERTER_GEN_CONTROL	0x02
 #define MYBMM_INVERTER_POWER_CONTROL	0x04
 
+int inverter_add(mybmm_config_t *conf, mybmm_inverter_t *inv);
 int inverter_init(mybmm_config_t *conf);
 int inverter_start_update(mybmm_config_t *conf);
 int inverter_read(mybmm_inverter_t *inv);

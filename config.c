@@ -19,7 +19,8 @@ int read_config(mybmm_config_t *conf) {
 		{ "mybmm", "cell_crit_low", "Critical cell low voltage", DATA_TYPE_FLOAT, &conf->cell_crit_low, 0, "-1" },
 		{ "mybmm", "cell_high", "Cell high voltage", DATA_TYPE_FLOAT, &conf->cell_high, 0, "-1" },
 		{ "mybmm", "cell_crit_high", "Critical cell high voltage", DATA_TYPE_FLOAT, &conf->cell_crit_high, 0, "-1" },
-		{ "mybmm", "c_rate", "Current rate", DATA_TYPE_FLOAT, &conf->c_rate, 0, "-1" },
+		{ "mybmm", "c_rate", "Charge rate", DATA_TYPE_FLOAT, &conf->c_rate, 0, "-1" },
+		{ "mybmm", "d_rate", "Discharge rate", DATA_TYPE_FLOAT, &conf->d_rate, 0, "-1" },
 		{ "mybmm", "database", "Database Connection", DATA_TYPE_STRING, &conf->db_name, sizeof(conf->db_name), "" },
 		/* Forced values */
 		{ "mybmm", "capacity", "Battery Capacity", DATA_TYPE_FLOAT, &conf->user_capacity, 0, "-1" },

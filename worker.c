@@ -280,7 +280,6 @@ void worker_killbusy(worker_pool_t *pool) {
 			pthread_mutex_unlock(&wp->lock);
 			printf(">>> worker[%d]: killing slot! <<<\n",wp->slot);
 			dprintf("worker[%d]: killing slot...\n",wp->slot);
-exit(0);
 			pthread_kill(wp->tid, SIGTERM);
 			wp->flags |= FLAG_KILL;
 			continue;

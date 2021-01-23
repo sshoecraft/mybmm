@@ -95,8 +95,10 @@ static int ip_open(void *handle) {
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = inet_addr(temp);
 	addr.sin_port = htons(s->port);
+	dprintf(3,"connecting...\n");
 	if (connect(s->fd,(struct sockaddr *)&addr,sin_size) < 0) {
-		printf("ip_open: connect to %s: %s\n", s->target, strerror(errno));
+//		printf("ip_open: connect to %s: %s\n", s->target, strerror(errno));
+		lprintf(LOG_SYSERR,"connect to %s", s->target);
 		goto ip_open_error;
 	}
 

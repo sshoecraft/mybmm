@@ -113,7 +113,7 @@ void display(struct mybmm_config *conf) {
 		x++;
 	}
 
-//	if (!debug) system("clear; echo \"**** $(date) ****\"");
+	if (!debug) system("clear; echo \"**** $(date) ****\"");
 
 	x = 0;
 	inv = conf->inverter;

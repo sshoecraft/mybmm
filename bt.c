@@ -65,6 +65,12 @@ static void notification_cb(const uuid_t* uuid, const uint8_t* data, size_t data
 	dprintf(4,"s->cbcnt: %d\n", s->cbcnt);
 }
 
+#if 0
+void my_notification_cb(uint16_t handle, const uint8_t* data, size_t data_length, void* user_data) {
+	printf("Notification on handle 0x%02x\n", handle);
+}
+#endif
+
 static int bt_open(void *handle) {
 	bt_session_t *s = handle;
 	uint16_t on = 0x0001;
@@ -84,7 +90,6 @@ static int bt_open(void *handle) {
 	dprintf(1,"s->c: %p\n", s->c);
 
 	/* yes, its hardcoded. deal. */
-	dprintf(1,"reg not\n");
 	gattlib_write_char_by_handle(s->c, 0x0026, &on, sizeof(on));
 	gattlib_register_notification(s->c, notification_cb, s);
 	if (gattlib_notification_start(s->c, &s->uuid)) {

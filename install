@@ -1,0 +1,21 @@
+basedir=/opt/mybmm
+bindir=$basedir/bin
+service=/etc/systemd/system/mybmm.service
+cat > $service << SYSTEMD_EOF
+[Unit]
+Description=MyBMS Manager service
+After=sshd.service network-online.target network.target rsyslog.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=$bindir/mybmm
+WorkingDirectory=$bindir
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_EOF
+chown root:root $service
+chmod 644 $service
+systemctl daemon-reload
+systemctl enable mybmm

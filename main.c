@@ -21,9 +21,9 @@ LICENSE file in the root directory of this source tree.
 #include <sys/types.h>
 #include <pwd.h>
 #include "mybmm.h"
-#include "log.h"
-#include "fileinfo.h"
 #include "battery.h"
+
+#define DEBUG_STARTUP 0
 
 int debug = 0;
 
@@ -38,7 +38,7 @@ void usr1_handler(int signo) {
 void usage(char *name) {
 	printf("usage: %s [-acjJrwlh] [-f filename] [-b <bluetooth mac addr | -i <ip addr>] [-o output file]\n",name);
 	printf("arguments:\n");
-	printf("  -b <type> specify battery chem (1=lion, 2=lfp, 3=lit)\n");
+	printf("  -b <type,capacity> specify battery chem (1=lion, 2=lfp, 3=lto)\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
 #endif
@@ -50,29 +50,31 @@ void usage(char *name) {
 }
 
 static mybmm_config_t *init(int argc, char **argv) {
-	int opt,battery_chem;
+	int logopts = LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR;
+	int opt,battery_chem,battery_cap;
 	char inv_type[MYBMM_MODULE_NAME_LEN+1],inv_transport[MYBMM_MODULE_NAME_LEN+1],inv_target[MYBMM_TARGET_LEN+1];
 	char pack_type[MYBMM_MODULE_NAME_LEN+1],pack_transport[MYBMM_MODULE_NAME_LEN+1],pack_target[MYBMM_TARGET_LEN+1];
 	sigset_t set;
 	mybmm_config_t *conf;
 	char *configfile,*logfile;
 	int test =0;
-	int uid;
-	struct passwd *pw;
-	char temp[256];
 
-	battery_chem = -1;
+	battery_chem = battery_cap = -1;
 	inv_type[0] = inv_transport[0] = inv_target[0] = 0;
 	pack_type[0] = pack_transport[0] = pack_target[0] = 0;
 	configfile = logfile = 0;
 	while ((opt=getopt(argc, argv, "b:d:c:l:i:p:e:ht")) != -1) {
 		switch (opt) {
 		case 'b':
-			battery_chem=atoi(optarg);
+			battery_chem = atoi(strele(0,",",optarg));
+			battery_cap = atoi(strele(1,",",optarg));
 			break;
+#ifdef DEBUG
 		case 'd':
 			debug=atoi(optarg);
+			logopts |= LOG_DEBUG;
 			break;
+#endif
 		case 'c':
 			configfile=optarg;
 			break;
@@ -102,11 +104,6 @@ static mybmm_config_t *init(int argc, char **argv) {
 				return 0;
 			}
 			break;
-#if 0
-		case 'e':
-			opts = optarg;
-			break;
-#endif
 		case 'h':
 		default:
 			usage(argv[0]);
@@ -115,39 +112,8 @@ static mybmm_config_t *init(int argc, char **argv) {
 	}
 
 	/* Open logfile if specified */
-	if (logfile) log_open("mybmm",logfile,LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
+	log_open("mybmm",logfile,logopts);
 
-	/* Get config */
-	if (!configfile) {
-		if (access("/etc/mybmm.conf",R_OK) == 0) {
-			configfile="/etc/mybmm.conf";
-		} else if (access("/usr/local/etc/mybmm.conf",R_OK) == 0) {
-			configfile="/usr/local/etc/mybmm.conf";
-		} else {
-			/* Get the uid of this process */
-			uid = getuid();
-			DLOG(LOG_DEBUG,"uid: %ld\n",uid);
-
-			if (uid) {
-				/* Get the password entry for this uid */
-				pw = getpwuid(uid);
-				if (pw) {
-					sprintf(temp,"%s/etc/mybmm.conf",pw->pw_dir);
-					DDLOG("temp: %s\n", temp);
-					if (access(temp,R_OK)==0) {
-						configfile=temp;
-					} else {
-						sprintf(temp,"%s/mybmm.conf",pw->pw_dir);
-						if (access(temp,R_OK)==0) {
-							configfile=temp;
-						} else if (access("mybmm.conf",R_OK)==0) {
-							configfile="mybmm.conf";
-						}
-					}
-				}
-			}
-		}
-	}
 	conf = get_config(configfile);
 	dprintf(4,"conf: %p\n", conf);
 	if (!conf) return 0;
@@ -155,6 +121,7 @@ static mybmm_config_t *init(int argc, char **argv) {
 	DDLOG("battery_chem: %d\n",battery_chem);
 	if (battery_chem >= 0) {
 		conf->battery_chem = battery_chem;
+		conf->capacity = battery_cap >= 0 ? battery_cap : 100;
 		conf->cell_low = conf->cell_crit_low = conf->cell_high = conf->cell_crit_high = -1;
 		conf->c_rate = -1;
 		battery_init(conf);
@@ -213,8 +180,10 @@ int main(int argc, char **argv) {
 	uint32_t mask;
 	time_t start,end,diff;
 
+#if DEBUG_STARTUP
 	/* Open an initial debug-only log to stdout */
 	log_open("mybmm",0,LOG_TIME|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR|LOG_DEBUG);
+#endif
 
 	/* Initialize system */
 	conf = init(argc,argv);
@@ -305,12 +274,12 @@ int main(int argc, char **argv) {
 			if (mybmm_check_state(conf,MYBMM_FORCE_SOC)) mybmm_clear_state(conf,MYBMM_FORCE_SOC);
 			/* Close contactors? */
 		}
-		if (npacks) dprintf(0,"%d/%d packs reported\n",packs_reported,npacks);
+		if (npacks) lprintf(0,"%d/%d packs reported\n",packs_reported,npacks);
 
 		/* If we dont have any inverts or packs, no sense continuing... */
 		dprintf(1,"inv_reported: %d, pack_reported: %d\n", inv_reported, packs_reported);
 		if (!inv_reported && !packs_reported) {
-			if (!conf->filename) {
+			if (!conf->filename && !conf->inverter) {
 				printf("no config file, no inverter specified and no pack specified, nothing to do!\n");
 				break;
 			} else {
@@ -333,9 +302,9 @@ int main(int argc, char **argv) {
 			} else {
 				conf->capacity = min_cap * list_count(conf->packs);
 			}
-			dprintf(0,"Capacity: %.1f\n", conf->capacity);
+			lprintf(0,"Capacity: %.1f\n", conf->capacity);
 			conf->kwh = (conf->capacity * conf->system_voltage) / 1000.0;
-			dprintf(0,"kWh: %.1f\n", conf->kwh);
+			lprintf(0,"kWh: %.1f\n", conf->kwh);
 		}
 
 		if (npacks) {
@@ -344,20 +313,22 @@ int main(int argc, char **argv) {
 			if (!(int)conf->battery_voltage) conf->battery_voltage = pack_voltage_total / packs_reported;
 			if (!(int)conf->battery_current) conf->battery_current = pack_current_total / packs_reported;
 		}
-		dprintf(0,"Battery voltage: %.1f, Battery current: %.1f\n", conf->battery_voltage, conf->battery_current);
+		lprintf(0,"Battery voltage: %.1f, Battery current: %.1f\n", conf->battery_voltage, conf->battery_current);
 
 		dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
-		conf->charge_voltage = conf->user_charge_voltage > 0.0 ? conf->user_charge_voltage : conf->cell_high * conf->cells;
-		conf->charge_amps = conf->user_charge_amps > 0.0 ? conf->user_charge_amps : ((conf->c_rate * conf->capacity) * 2) / 3;
-		dprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
+		conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+		dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
+		conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
+		lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
 
 		dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
-		conf->discharge_voltage = conf->user_discharge_voltage > 0.0 ? conf->user_discharge_voltage : conf->cell_low * conf->cells;
-		conf->discharge_amps = conf->user_discharge_amps > 0.0 ? conf->user_discharge_amps : conf->c_rate * conf->capacity;
-		dprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
+		conf->discharge_voltage = conf->user_discharge_voltage < 0.0 ? conf->cell_low * conf->cells : conf->user_discharge_voltage;
+		dprintf(2,"conf->d_rate: %f, conf->capacity: %f\n", conf->d_rate, conf->capacity);
+		conf->discharge_amps = conf->user_discharge_amps < 0.0 ? conf->d_rate * conf->capacity : conf->user_discharge_amps;
+		lprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
 
-		conf->soc = conf->user_soc >= 0.0 ? conf->user_soc : ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0;
-		dprintf(0,"SoC: %.1f\n", conf->soc);
+		conf->soc = conf->user_soc < 0.0 ? ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0 : conf->user_soc;
+		lprintf(0,"SoC: %.1f\n", conf->soc);
 		conf->soh = 100.0;
 
 		/* Update inverter */
