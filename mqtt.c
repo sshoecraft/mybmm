@@ -117,6 +117,25 @@ int mqtt_send(mqtt_session_t *s, char *message, int timeout) {
 	return 0;
 }
 
+int mqtt_setcb(mqtt_session_t *s, void *ctx, MQTTClient_connectionLost *cl, MQTTClient_messageArrived *ma, MQTTClient_deliveryComplete *dc) {
+	int rc;
+
+	dprintf(1,"s: %p, ctx: %p, cl: %p, ma: %p, dc: %p\n", s, ctx, cl, ma, dc);
+	rc = MQTTClient_setCallbacks(s->c, ctx, cl, ma, dc);
+	dprintf(1,"rc: %d\n", rc);
+	return rc;
+}
+
+int mqtt_sub(mqtt_session_t *s, char *topic) {
+	int rc;
+
+	dprintf(1,"s: %p, topic: %s\n", s, topic);
+	rc = MQTTClient_subscribe(s->c, topic, 1);
+	dprintf(1,"rc: %d\n", rc);
+	return rc;
+}
+
+
 int mqtt_fullsend(char *address, char *clientid, char *message, char *topic) {
 	int rc = 1;
 	mqtt_session_t *s = mqtt_new(address, clientid, topic);

@@ -1,0 +1,1 @@
+uuid.o: uuid.c

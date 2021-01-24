@@ -168,8 +168,6 @@ static mybmm_config_t *init(int argc, char **argv) {
 	return conf;
 }
 
-void display(struct mybmm_config *conf);
-
 int main(int argc, char **argv) {
 	int inv_reported,packs_reported,cell,in_range,npacks;
 	mybmm_config_t *conf;
@@ -284,8 +282,6 @@ int main(int argc, char **argv) {
 		}
 
 		if (npacks) {
-			display(conf);
-
 			/* For capacity, if user capacity is set, use that.  */
 			dprintf(2,"user_capacity: %2.2f, DC: %d, min_cap: %2.2f, pack_count: %d\n",conf->user_capacity,mybmm_check_cap(conf,MYBMM_DISCHARGE_CONTROL), min_cap, list_count(conf->packs));
 			if (conf->user_capacity > 0.0) {

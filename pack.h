@@ -35,7 +35,6 @@ struct mybmm_pack {
 	int status;			/* Pack status, updated by BMS */
 	int ntemps;			/* Number of temps */
 	float temps[MYBMM_PACK_MAX_TEMPS];	/* Temp values */
-	float temp;			/* Temp, in C */
 	int cells;			/* Number of cells, updated by BMS */
 //	battery_cell_t *cells;		/* Cell info */
 	float cellvolt[MYBMM_PACK_MAX_CELLS]; /* Per-cell voltages, updated by BMS */
