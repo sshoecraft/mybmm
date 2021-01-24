@@ -25,6 +25,23 @@ LICENSE file in the root directory of this source tree.
 #define DPRINTF(format, args...) /* noop */
 #endif
 
+#define _dump(i) DPRINTF("%s: item: %p, prev: %p, next: %p\n", #i, i, i->prev, i->next);
+void list_checkitem(list_item ip1) {
+	_dump(ip1);
+	assert(ip1->prev != ip1);
+	assert(ip1->next != ip1);
+	if (ip1->prev) {
+		_dump(ip1->prev);
+		assert(ip1->prev->prev != ip1);
+		assert(ip1->prev->next == ip1);
+	}
+	if (ip1->next) {
+		_dump(ip1->next);
+		assert(ip1->next->prev == ip1);
+		assert(ip1->next->next != ip1);
+	}
+}
+
 static list_item _newitem(void *item, int size) {
 	list_item new_item;
 
@@ -292,44 +309,9 @@ static int _compare(list_item item1, list_item item2) {
 	return val;
 }
 
-#define _dump(i) DPRINTF("%s: item: %p, prev: %p, next: %p\n", #i, i, i->prev, i->next);
 
-void chk(list_item ip1,list_item ip2) {
-	_dump(ip1);
-	assert(ip1->prev != ip1);
-	assert(ip1->next != ip1);
-	if (ip1->prev) {
-		_dump(ip1->prev);
-		assert(ip1->prev->prev != ip1);
-		assert(ip1->prev->next == ip1);
-	}
-	if (ip1->next) {
-		_dump(ip1->next);
-		assert(ip1->next->prev == ip1);
-		assert(ip1->next->next != ip1);
-	}
-	if (!ip2) return;
-	_dump(ip2);
-	assert(ip2->prev != ip2);
-	assert(ip2->next != ip2);
-	if (ip2->prev) {
-		_dump(ip2->prev);
-		assert(ip2->prev->prev != ip2);
-		if (ip2->prev->next) assert(ip2->prev->next == ip2);
-	}
-	if (ip2->next) {
-		_dump(ip2->next);
-		if (ip2->next->prev) assert(ip2->next->prev == ip2);
-		assert(ip2->next->next != ip2);
-	}
-}
-
-void dump(list lp) {
-	list_item i;
-	for(i = lp->first; i; i = i->next) chk(i,0);
-}
 int list_sort(list lp, list_compare compare, int order) {
-	int comp,swap,swapped,save_size;
+	int comp,swap,save_size;
 	list_item save_item;
 	register list_item ip1,ip2;
 
@@ -348,7 +330,6 @@ int list_sort(list lp, list_compare compare, int order) {
 	comp = (order == 0 ? 1 : -1);
 
 	/* Sort the list */
-	swapped = 0;
 	for(ip1 = lp->first; ip1;) {
 		swap = 0;
 		for(ip2 = ip1->next; ip2; ip2 = ip2->next) {
@@ -366,14 +347,11 @@ int list_sort(list lp, list_compare compare, int order) {
 			ip1->size = ip2->size;
 			ip2->item = save_item;
 			ip2->size = save_size;
-			chk(ip1,ip2);
-			swapped = 1;
 		} else
 			ip1 = ip1->next;
 	}
 #ifdef THREAD_SAFE
 	pthread_mutex_unlock(&lp->mutex);
 #endif
-	if (swapped) dump(lp);
 	return 0;
 }
