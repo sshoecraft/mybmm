@@ -1,4 +1,5 @@
 
+#ifdef MQTT
 #ifndef __MYBMM_MQTT_H
 #define __MYBMM_MQTT_H
 
@@ -25,4 +26,5 @@ int mqtt_setcb(mqtt_session_t *s, void *ctx, mqtt_cl_t *cl,  mqtt_ma_t *ma, mqtt
 
 int mqtt_fullsend(char *address, char *clientid, char *message, char *topic);
 
+#endif
 #endif

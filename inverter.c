@@ -2,9 +2,9 @@
 #include "mybmm.h"
 #include "uuid.h"
 #include "parson.h"
-#include "mqtt.h"
 
 #ifdef MQTT
+#include "mqtt.h"
 int inverter_mqtt_send(mybmm_inverter_t *inv) {
 	register int i,j;
 	char temp[256],*p;
