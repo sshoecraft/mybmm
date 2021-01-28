@@ -114,7 +114,9 @@ static mybmm_config_t *init(int argc, char **argv) {
 	conf = get_config(configfile);
 	dprintf(4,"conf: %p\n", conf);
 	if (!conf) return 0;
+#ifdef MQTT
 	mqtt_init(conf);
+#endif
 
 	DDLOG("battery_chem: %d\n",battery_chem);
 	if (battery_chem >= 0) {

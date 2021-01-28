@@ -4,6 +4,7 @@
 #include "parson.h"
 #include "mqtt.h"
 
+#ifdef MQTT
 int inverter_mqtt_send(mybmm_inverter_t *inv) {
 	register int i,j;
 	char temp[256],*p;
@@ -75,6 +76,7 @@ int inverter_mqtt_send(mybmm_inverter_t *inv) {
 
 	return 0;
 }
+#endif
 
 int inverter_read(mybmm_inverter_t *inv) {
 	int r;
@@ -105,7 +107,9 @@ int inverter_write(mybmm_inverter_t *inv) {
 		return 1;
 	}
 	inv->close(inv->handle);
+#ifdef MQTT
 	inverter_mqtt_send(inv);
+#endif
 	return 0;
 }
 

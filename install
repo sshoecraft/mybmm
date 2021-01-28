@@ -1,7 +1,8 @@
 basedir=/usr/local
 bindir=$basedir/bin
 etcdir=$basedir/etc
-logdir=/var/log
+#logdir=/var/log
+logdir=/tmp
 service=/etc/systemd/system/mybmm.service
 cat > $service << SYSTEMD_EOF
 [Unit]

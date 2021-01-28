@@ -1,4 +1,5 @@
 
+#ifdef MQTT
 #include <string.h>
 #include <MQTTClient.h>
 #include <MQTTAsync.h>
@@ -148,4 +149,4 @@ mqtt_send_error:
 	mqtt_destroy(s);
 	return rc;
 }
-
+#endif

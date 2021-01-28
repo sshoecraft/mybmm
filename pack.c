@@ -9,8 +9,9 @@
 #include "uuid.h"
 #include "worker.h"
 #include "parson.h"
-#include "mqtt.h"
 
+#ifdef MQTT
+#include "mqtt.h"
 int pack_mqtt_send(mybmm_config_t *conf,mybmm_pack_t *pp) {
 	register int i,j;
 	char temp[256],*p;
@@ -140,6 +141,7 @@ void pack_mqtt_reconnect(void *ctx, char *cause) {
 	dprintf(1,"++++ RECONNECT: cause: %s\n", cause);
 	mqtt_connect(pp->mqtt_handle,20);
 }
+#endif
 
 //int do_pack_update(void *ctx) {
 //	mybmm_pack_t *pp = ctx;
@@ -296,7 +298,9 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	while((pp = list_get_next(conf->packs)) != 0) {
 		pp->close(pp->handle);
 		dprintf(1,"%s: updated: %d\n", pp->name, mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED));
+#ifdef MQTT
 		if (mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) pack_mqtt_send(conf,pp);
+#endif
 	}
 
 	return 0;
@@ -311,7 +315,6 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		{ packname, "target", "Pack address/interface/device", DATA_TYPE_STRING,&pp->target,sizeof(pp->target), 0 },
 		{ packname, "opts", "Pack-specific options", DATA_TYPE_STRING,&pp->opts,sizeof(pp->opts), 0 },
 		{ packname, "capacity", "Pack Capacity in AH", DATA_TYPE_FLOAT,&pp->capacity, 0, 0 },
-//		{ packname, "mqtt_topic", "Pack Capacity in AH", DATA_TYPE_STRING,&pp->mqtt_topic, sizeof(pp->mqtt_topic), 0 },
 		CFG_PROCTAB_END
 	};
 	mybmm_module_t *mp, *tp;
@@ -358,6 +361,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		}
 	}
 
+#ifdef MQTT
 	if (strlen(conf->mqtt_broker)) {
 		char topic[192];
 		int r;
@@ -374,6 +378,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		r = mqtt_setcb(pp->mqtt_handle, pp, pack_mqtt_reconnect, 0, 0);
 		dprintf(1,"setcb rc: %d\n", r);
 	}
+#endif
 
 	/* Get capability mask */
 	dprintf(1,"capabilities: %02x\n", mp->capabilities);

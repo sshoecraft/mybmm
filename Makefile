@@ -1,6 +1,6 @@
 
-BLUETOOTH=yes
-MQTT=yes
+BLUETOOTH=no
+MQTT=no
 
 PROG=$(shell basename $(shell pwd))
 INVERTERS=si.c
