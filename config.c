@@ -25,7 +25,7 @@ int get_mqtt_conf(mybmm_config_t *conf) {
 
 int read_config(mybmm_config_t *conf) {
         struct cfg_proctab myconf[] = {
-		{ "mybmm", "interval", "Time between updates", DATA_TYPE_INT, &conf->interval, 0, "20" },
+		{ "mybmm", "interval", "Time between updates", DATA_TYPE_INT, &conf->interval, 0, "30" },
 		{ "mybmm", "max_charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->max_charge_amps, 0, "-1" },
 		{ "mybmm", "max_discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->max_discharge_amps, 0, "-1" },
 		{ "mybmm", "system_voltage", "Battery/System Voltage", DATA_TYPE_INT, &conf->system_voltage, 0, "48" },
@@ -77,6 +77,7 @@ int read_config(mybmm_config_t *conf) {
 	}
 	dprintf(3,"dlsym_handle: %p\n",conf->dlsym_handle);
 #endif
+
 
 	/* Init battery config */
 	if (battery_init(conf)) return 1;

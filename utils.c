@@ -260,6 +260,40 @@ int log_open(char *ident,char *filename,int opts) {
 	return 0;
 }
 
+int get_timestamp(char *ts, int tslen, int local) {
+	struct tm *tptr;
+	time_t t;
+	char temp[32];
+	int len;
+
+	if (!ts || !tslen) return 1;
+
+	/* Fill the tm struct */
+	t = time(NULL);
+	tptr = 0;
+	DPRINTF("local: %d\n", local);
+	if (local) tptr = localtime(&t);
+	else tptr = gmtime(&t);
+	if (!tptr) {
+		DPRINTF("unable to get %s!\n",local ? "localtime" : "gmtime");
+		return 1;
+	}
+
+	/* Set month to 1 if month is out of range */
+	if (tptr->tm_mon < 0 || tptr->tm_mon > 11) tptr->tm_mon = 0;
+
+	/* Fill string with yyyymmddhhmmss */
+	sprintf(temp,"%04d-%02d-%02d %02d:%02d:%02d",
+		1900+tptr->tm_year,tptr->tm_mon+1,tptr->tm_mday,
+		tptr->tm_hour,tptr->tm_min,tptr->tm_sec);
+
+	ts[0] = 0;
+	len = tslen < strlen(temp)-1 ? strlen(temp)-1 : tslen; 
+	DPRINTF("returning: %s\n", ts);
+	strncat(ts,temp,len);
+	return 0;
+}
+
 static char message[32767];
 
 int log_write(int type,char *format,...) {
@@ -283,10 +317,12 @@ int log_write(int type,char *format,...) {
 	/* Prepend the time? */
 	ptr = message;
 	if (logopts & LOG_TIME || type & LOG_TIME) {
-		struct tm *tptr;
-		time_t t;
+//		struct tm *tptr;
+//		time_t t;
 
 		DPRINTF("prepending time...\n");
+		get_timestamp(dt,sizeof(dt),1);
+#if 0
 		/* Fill the tm struct */
 		t = time(NULL);
 		tptr = 0;
@@ -304,6 +340,7 @@ int log_write(int type,char *format,...) {
 		sprintf(dt,"%04d-%02d-%02d %02d:%02d:%02d",
 			1900+tptr->tm_year,tptr->tm_mon+1,tptr->tm_mday,
 			tptr->tm_hour,tptr->tm_min,tptr->tm_sec);
+#endif
 
 		strcat(dt,"  ");
 		ptr += sprintf(ptr,"%s",dt);

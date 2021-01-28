@@ -214,7 +214,7 @@ static int ip_close(void *handle) {
 
 	/* Is it open */
 	if (s->fd >= 0) {
-		dprintf(1,"closing...\n");
+		dprintf(5,"closing...\n");
 		close(s->fd);
 		s->fd = -1;
 	}

@@ -2,14 +2,17 @@
 #ifndef __PACK_H
 #define __PACK_H
 
+#include "config.h"
+
 #define MYBMM_PACK_NAME_LEN 32
 #define MYBMM_PACK_MAX_TEMPS 8
 #define MYBMM_PACK_MAX_CELLS 32
 
 struct battery_cell {
-	float voltage;
-	unsigned char status;
 	char *label;
+	unsigned char status;
+	float voltage;
+	float resistance;
 };
 
 #define CELL_STATUS_OK 		0x00
@@ -19,6 +22,8 @@ struct battery_cell {
 #define CELL_STATUS_OVERVOLT	0x80
 
 struct mybmm_pack {
+	mybmm_config_t *conf;		/* back ptr */
+	void *mqtt_handle;		/* MQTT connection handle */
 	char name[MYBMM_PACK_NAME_LEN];	/* Pack name */
 	char uuid[37];			/* UUID */
 	char type[32];			/* BMS name */
@@ -28,7 +33,7 @@ struct mybmm_pack {
 	uint16_t state;			/* Pack state */
 	int failed;			/* Update fail count */
 	int error;			/* Error code, from BMS */
-	char *errmsg;			/* Error message, updated by BMS */
+	char errmsg[256];		/* Error message, updated by BMS */
 	float capacity;			/* Battery pack capacity, in AH */
 	float voltage;			/* Pack voltage */
 	float current;			/* Pack current */
@@ -38,6 +43,11 @@ struct mybmm_pack {
 	int cells;			/* Number of cells, updated by BMS */
 //	battery_cell_t *cells;		/* Cell info */
 	float cellvolt[MYBMM_PACK_MAX_CELLS]; /* Per-cell voltages, updated by BMS */
+	float cellres[MYBMM_PACK_MAX_CELLS]; /* Per-cell resistances, updated by BMS */
+	float cell_min;
+	float cell_max;
+	float cell_diff;
+	float cell_avg;
 	uint32_t balancebits;		/* Balance bitmask */
 	uint16_t capabilities;		/* BMS Capability Mask */
 	void *handle;			/* BMS Handle */
@@ -45,6 +55,7 @@ struct mybmm_pack {
 	mybmm_module_read_t read;	/* BMS Read */
 	mybmm_module_close_t close;	/* BMS Close */
 	mybmm_module_control_t control;	/* BMS Control */
+	char timestamp[32];		/* Last update timestamp */
 };
 typedef struct mybmm_pack mybmm_pack_t;
 

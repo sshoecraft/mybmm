@@ -1,6 +1,80 @@
 
 #include "mybmm.h"
 #include "uuid.h"
+#include "parson.h"
+#include "mqtt.h"
+
+int inverter_mqtt_send(mybmm_inverter_t *inv) {
+	register int i,j;
+	char temp[256],*p;
+	JSON_Value *root_value;
+	JSON_Object *root_object;
+	struct inverter_states {
+		int mask;
+		char *label;
+	} states[] = {
+		{ MYBMM_INVERTER_STATE_RUNNING, "Running" },
+		{ MYBMM_INVERTER_STATE_CHARGING, "Charging" },
+		{ MYBMM_INVERTER_STATE_GRID, "GridConnected" },
+		{ MYBMM_INVERTER_STATE_GEN, "GeneratorRunning" },
+	};
+#define NSTATES (sizeof(states)/sizeof(struct inverter_states))
+
+	/* Create JSON data */
+	root_value = json_value_init_object();
+	root_object = json_value_get_object(root_value);
+
+	if (get_timestamp(temp,sizeof(temp),1) == 0) json_object_set_string(root_object, "timestamp", temp);
+	json_object_set_string(root_object, "name", inv->name);
+	json_object_set_string(root_object, "uuid", inv->uuid);
+	json_object_set_number(root_object, "capacity", inv->conf->soc);
+	json_object_set_number(root_object, "errcode", inv->error);
+	json_object_set_string(root_object, "errmsg", inv->errmsg);
+	json_object_set_number(root_object, "battery_voltage", inv->battery_voltage);
+	json_object_set_number(root_object, "battery_current", inv->battery_current);
+	json_object_set_number(root_object, "battery_power", inv->battery_power);
+	json_object_set_number(root_object, "grid_power", inv->grid_power);
+	json_object_set_number(root_object, "load_power", inv->load_power);
+	json_object_set_number(root_object, "site_power", inv->site_power);
+#if 0
+	p = temp;
+	p += sprintf(p,"[ ");
+	for(i=0; i < inv->ntemps; i++) {
+		if (i) p += sprintf(p,",");
+		p += sprintf(p, "%.1f",inv->temps[i]);
+	}
+	strcat(temp," ]");
+	dprintf(4,"temp: %s\n", temp);
+	json_object_dotset_value(root_object, "temps", json_parse_string(temp));
+#endif
+	/* States */
+	temp[0] = 0;
+	p = temp;
+	for(i=j=0; i < NSTATES; i++) {
+		if (mybmm_check_state(inv,states[i].mask)) {
+			if (j) p += sprintf(p,",");
+			p += sprintf(p,states[i].label);
+			j++;
+		}
+	}
+	json_object_set_string(root_object, "states", temp);
+
+//	p = json_serialize_to_string_pretty(root_value);
+	p = json_serialize_to_string(root_value);
+#if 0
+	if (mqtt_send(inv->mqtt_handle, p, 15)) {
+		dprintf(1,"mqtt send error!\n");
+		return 1;
+	}
+#else
+	sprintf(temp,"/Inverter/%s",inv->name);
+	mqtt_fullsend(inv->conf->mqtt_broker,inv->name, p, temp);
+#endif
+	json_free_serialized_string(p);
+	json_value_free(root_value);
+
+	return 0;
+}
 
 int inverter_read(mybmm_inverter_t *inv) {
 	int r;
@@ -31,9 +105,11 @@ int inverter_write(mybmm_inverter_t *inv) {
 		return 1;
 	}
 	inv->close(inv->handle);
+	inverter_mqtt_send(inv);
 	return 0;
 }
 
+#if 0
 static void *inverter_thread(void *arg) {
 	mybmm_config_t *conf = arg;
 	mybmm_inverter_t *inv = conf->inverter;
@@ -63,6 +139,7 @@ static void *inverter_thread(void *arg) {
 	inv->close(inv->handle);
 	return 0;
 }
+#endif
 
 static void get_tab(mybmm_config_t *conf, char *name,mybmm_inverter_t *inv) {
         struct cfg_proctab invertertab[] = {
@@ -132,6 +209,7 @@ int inverter_add(mybmm_config_t *conf, mybmm_inverter_t *inv) {
 
 	/* Update conf */
 	conf->inverter = inv;
+	inv->conf = conf;
 
 	dprintf(3,"done!\n");
 	return 0;
@@ -152,7 +230,7 @@ int inverter_init(mybmm_config_t *conf) {
 	return inverter_add(conf,inv);
 }
 
-
+#if 0
 int inverter_start_update(mybmm_config_t *conf) {
 	pthread_attr_t attr;
 
@@ -172,3 +250,4 @@ int inverter_start_update(mybmm_config_t *conf) {
 	}
 	return 0;
 }
+#endif

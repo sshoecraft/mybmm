@@ -55,9 +55,10 @@ static mybmm_config_t *init(int argc, char **argv) {
 	int opt,battery_chem,battery_cap;
 	char inv_type[MYBMM_MODULE_NAME_LEN+1],inv_transport[MYBMM_MODULE_NAME_LEN+1],inv_target[MYBMM_TARGET_LEN+1];
 	char pack_type[MYBMM_MODULE_NAME_LEN+1],pack_transport[MYBMM_MODULE_NAME_LEN+1],pack_target[MYBMM_TARGET_LEN+1];
-	sigset_t set;
+//	sigset_t set;
 	mybmm_config_t *conf;
 	char *configfile,*logfile;
+	int test =0;
 
 	battery_chem = battery_cap = -1;
 	inv_type[0] = inv_transport[0] = inv_target[0] = 0;
@@ -80,6 +81,9 @@ static mybmm_config_t *init(int argc, char **argv) {
 			break;
 		case 'l':
 			logfile=optarg;
+			break;
+		case 't':
+			test=1;
 			break;
                 case 'i':
 			strncpy(inv_type,strele(0,":",optarg),sizeof(inv_type)-1);
@@ -152,10 +156,14 @@ static mybmm_config_t *init(int argc, char **argv) {
 		pack_init(conf);
 	}
 
+	if (test) return 0;
+
+#if 0
 	/* Ignore SIGPIPE */
         sigemptyset(&set);
         sigaddset(&set, SIGPIPE);
         sigprocmask(SIG_BLOCK, &set, NULL);
+#endif
 
 	/* USR causes config re-read (could also check file modification time) */
 	reconf = 0;

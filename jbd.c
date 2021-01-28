@@ -122,7 +122,7 @@ void jbd_get_protect(struct jbd_protect *p, unsigned short bits) {
 			mask <<= 1;
 		}
 		bitstr[i] = 0;
-		dprintf(1,"protect: %s\n",bitstr);
+		dprintf(5,"protect: %s\n",bitstr);
 	}
 #endif
 #if 0
@@ -349,7 +349,7 @@ static int jbd_get_pack(jbd_session_t *s) {
 			mask <<= 1;
 		}
 		bits[i] = 0;
-		dprintf(1,"balancebits: %s\n",bits);
+		dprintf(5,"balancebits: %s\n",bits);
 	}
 #endif
 

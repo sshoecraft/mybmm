@@ -9,6 +9,7 @@ void _bindump(long offset,void *bptr,int len);
 char *trim(char *);
 char *strele(int num,char *delimiter,char *string);
 int is_ip(char *);
+int get_timestamp(char *ts, int tslen, int local);
 
 /* Define the log options */
 #define LOG_CREATE		0x0001	/* Create a new logfile */

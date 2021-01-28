@@ -1,16 +1,17 @@
-basedir=/opt/mybmm
+basedir=/usr/local
 bindir=$basedir/bin
+etcdir=$basedir/etc
+logdir=/var/log
 service=/etc/systemd/system/mybmm.service
 cat > $service << SYSTEMD_EOF
 [Unit]
 Description=MyBMS Manager service
-After=sshd.service network-online.target network.target rsyslog.service
+After=network-online.target network.target rsyslog.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=$bindir/mybmm
-WorkingDirectory=$bindir
+Type=simple
+ExecStart=$bindir/mybmm -c $etcdir/mybmm.conf -l $logdir/mybmm.log -d 1
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

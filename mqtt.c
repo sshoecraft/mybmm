@@ -38,7 +38,7 @@ struct mqtt_session *mqtt_new(char *address, char *clientid, char *topic) {
 	MQTTClient client;
 	int rc;
 
-	dprintf(1,"address: %s, clientid: %s, topic: %s\n", address, clientid, topic);
+	dprintf(2,"address: %s, clientid: %s, topic: %s\n", address, clientid, topic);
 	rc = MQTTClient_create(&client, address, clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		lprintf(LOG_SYSERR,"MQTTClient_create");
@@ -66,7 +66,7 @@ int mqtt_connect(mqtt_session_t *s, int interval) {
 	conn_opts.keepAliveInterval = interval;
 	conn_opts.cleansession = 1;
 	rc = MQTTClient_connect(s->c, &conn_opts);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		lprintf(LOG_SYSERR,"MQTTClient_connect");
 		return 1;
@@ -79,7 +79,7 @@ int mqtt_disconnect(mqtt_session_t *s, int timeout) {
 
 	if (!s) return 1;
 	rc = MQTTClient_disconnect(s->c, timeout);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
 
@@ -96,42 +96,42 @@ int mqtt_send(mqtt_session_t *s, char *message, int timeout) {
 	int rc;
 
 	if (!s) return 1;
-	dprintf(1,"message: %s, timeout: %d\n", message, timeout);
+	dprintf(2,"message: %s, timeout: %d\n", message, timeout);
 	pubmsg.payload = message;
 	pubmsg.payloadlen = strlen(message);
 	pubmsg.qos = 1;
-	pubmsg.retained = 1;
+	pubmsg.retained = 0;
 	rc = MQTTClient_publishMessage(s->c, s->topic, &pubmsg, &token);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		lprintf(LOG_SYSERR,"MQTTClient_publishMessage");
 		return 1;
 	}
 	rc = MQTTClient_waitForCompletion(s->c, token, timeout * 1000);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		lprintf(LOG_SYSERR,"MQTTClient_waitForCompletion");
 		return 1;
 	}
-	dprintf(1,"delivered message.\n");
+	dprintf(2,"delivered message.\n");
 	return 0;
 }
 
 int mqtt_setcb(mqtt_session_t *s, void *ctx, MQTTClient_connectionLost *cl, MQTTClient_messageArrived *ma, MQTTClient_deliveryComplete *dc) {
 	int rc;
 
-	dprintf(1,"s: %p, ctx: %p, cl: %p, ma: %p, dc: %p\n", s, ctx, cl, ma, dc);
+	dprintf(2,"s: %p, ctx: %p, cl: %p, ma: %p, dc: %p\n", s, ctx, cl, ma, dc);
 	rc = MQTTClient_setCallbacks(s->c, ctx, cl, ma, dc);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
 
 int mqtt_sub(mqtt_session_t *s, char *topic) {
 	int rc;
 
-	dprintf(1,"s: %p, topic: %s\n", s, topic);
+	dprintf(2,"s: %p, topic: %s\n", s, topic);
 	rc = MQTTClient_subscribe(s->c, topic, 1);
-	dprintf(1,"rc: %d\n", rc);
+	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
 

@@ -54,7 +54,7 @@ static int create_worker(worker_info_t *wp, int num) {
 worker_pool_t *worker_create_pool(int count) {
 	worker_pool_t *pool;
 	register int x;
-	pthread_attr_t attr;
+//	pthread_attr_t attr;
 
 	if (count < 1) return 0;
 
@@ -72,9 +72,11 @@ worker_pool_t *worker_create_pool(int count) {
 		return 0;
 	}
 
+#if 0
 	/* Create joinable attribute */
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+#endif
 
 	/* Init worker info */
 	dprintf("creating %d workers...\n",count);
@@ -121,15 +123,15 @@ int worker_destroy_pool(worker_pool_t *pool,int timeout) {
 }
 
 static void _doterm(int sig) {
-	if (sig == SIGTERM) pthread_exit(0);
+	if (sig == SIGINT) pthread_exit(0);
 }
 
 /* The actual worker function */
 static void *worker(void *arg) {
 	struct worker_info *wp = arg;
 
-	if (signal(SIGTERM,_doterm) == SIG_ERR) {
-		printf("error: worker[%d]: signal(SIGTERM): %s\n", wp->slot, strerror(errno));
+	if (signal(SIGINT,_doterm) == SIG_ERR) {
+		printf("error: worker[%d]: signal(SIGINT): %s\n", wp->slot, strerror(errno));
 		pthread_exit(0);
 	}
 
@@ -168,7 +170,7 @@ static void *worker(void *arg) {
 		pthread_mutex_unlock(&wp->lock);
 	}
 	dprintf("worker[%d]: exiting...\n", wp->slot);
-	signal(SIGTERM,SIG_DFL);
+	signal(SIGINT,SIG_DFL);
 	pthread_exit(0);
 //	return (void *)0;
 }
@@ -210,7 +212,7 @@ int worker_exec(worker_pool_t *pool, worker_func_t func, void *arg) {
 
 #if USE_COND
 			/* Set condition */
-//			dprintf("worker[%d]: signaling...\n",wp->slot);
+			dprintf("worker[%d]: signaling...\n",wp->slot);
 			pthread_cond_signal(&wp->cond);
 #endif
 
@@ -280,7 +282,7 @@ void worker_killbusy(worker_pool_t *pool) {
 			pthread_mutex_unlock(&wp->lock);
 			printf(">>> worker[%d]: killing slot! <<<\n",wp->slot);
 			dprintf("worker[%d]: killing slot...\n",wp->slot);
-			pthread_kill(wp->tid, SIGTERM);
+			pthread_kill(wp->tid, SIGINT);
 			wp->flags |= FLAG_KILL;
 			continue;
 		}

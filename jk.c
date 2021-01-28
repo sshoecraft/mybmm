@@ -68,7 +68,7 @@ static void _getvolts(mybmm_pack_t *pp, uint8_t *data) {
 	dprintf(1,"voltage: %.2f\n", pp->voltage);
 //	dprintf(1,"data[126]: %d %d %04x\n", _getshort(&data[126]),(unsigned short)_getshort(&data[126]),(unsigned short)_getshort(&data[126]));
 	pp->current = _getshort(&data[126]) / 1000.0;
-	dprintf(1,"current: %.2f\n", pp->current);
+	dprintf(4,"current: %.2f\n", pp->current);
 	pp->ntemps = 2;
 	pp->temps[0] = ((unsigned short)_getshort(&data[130])) / 10.0;
 	pp->temps[1] = ((unsigned short)_getshort(&data[132])) / 10.0;
@@ -143,7 +143,7 @@ static int getdata(mybmm_pack_t *pp, uint8_t *data, int bytes) {
 	r = 0;
 //	bindump("data",data,bytes);
 	for(i=j=0; i < bytes; i++) {
-		dprintf(4,"data[%d]: %02x, sig[%d]: %02x\n", i, data[i], j, sig[j]);
+		dprintf(6,"data[%d]: %02x, sig[%d]: %02x\n", i, data[i], j, sig[j]);
 		if (data[i] == sig[j]) {
 			if (j == 0) start = i;
 			j++;

@@ -1,5 +1,5 @@
 
-BLUETOOTH=no
+BLUETOOTH=yes
 MQTT=yes
 
 PROG=$(shell basename $(shell pwd))
@@ -11,7 +11,7 @@ _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
 UTILS=worker.c uuid.c list.c utils.c cfg.c
-SRCS=main.c config.c db.c module.c inverter.c pack.c battery.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
+SRCS=main.c config.c db.c module.c inverter.c pack.c battery.c parson.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
 LIBS+=-ldl -lpthread
 #CFLAGS=-DMYBMM
 #CFLAGS+=-Wall -O2 -pipe
@@ -28,6 +28,9 @@ LIBS+=-lpaho-mqtt3c
 endif
 OBJS=$(SRCS:.c=.o)
 
+#export MQTT_C_CLIENT_TRACE=ON
+
+.PHONY: all install
 all: $(PROG)
 
 $(PROG): $(OBJS) $(DEPS)

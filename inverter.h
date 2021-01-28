@@ -5,6 +5,7 @@
 #include "config.h"
 
 struct mybmm_inverter {
+	mybmm_config_t *conf;		/* back ptr */
 	char name[MYBMM_PACK_NAME_LEN];	/* Inverter name */
 	char uuid[37];			/* Inverter UUID */
 	char type[32];			/* Inverter type */
@@ -17,6 +18,8 @@ struct mybmm_inverter {
 	float grid_power;		/* Grid/Gen watts */
 	float load_power;		/* loads watts */
 	float site_power;		/* pv/wind/caes/chp watts */
+	int error;			/* Inverter Error code */
+	char errmsg[256];		/* Inverter Error message */
 	void *handle;			/* Inverter Handle */
 	mybmm_module_open_t open;	/* Inverter Open */
 	mybmm_module_control_t control;	/* Inverter Control */
@@ -34,6 +37,7 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 #define MYBMM_INVERTER_STATE_RUNNING	0x02
 #define MYBMM_INVERTER_STATE_GRID	0x04
 #define MYBMM_INVERTER_STATE_GEN	0x08
+#define MYBMM_INVERTER_STATE_CHARGING	0x10
 
 /* Capabilities */
 #define MYBMM_INVERTER_GRID_CONTROL	0x01
@@ -42,7 +46,7 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 
 int inverter_add(mybmm_config_t *conf, mybmm_inverter_t *inv);
 int inverter_init(mybmm_config_t *conf);
-int inverter_start_update(mybmm_config_t *conf);
+//int inverter_start_update(mybmm_config_t *conf);
 int inverter_read(mybmm_inverter_t *inv);
 int inverter_write(mybmm_inverter_t *inv);
 

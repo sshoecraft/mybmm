@@ -56,20 +56,14 @@ static void notification_cb(const uuid_t* uuid, const uint8_t* data, size_t data
 	bt_session_t *s = (bt_session_t *) user_data;
 
 	/* Really should check for overrun here */
-	dprintf(4,"s->len: %d, data: %p, data_length: %d\n", s->len, data, data_length);
+	dprintf(7,"s->len: %d, data: %p, data_length: %d\n", s->len, data, data_length);
 	if (s->len + data_length > sizeof(s->data)) data_length = sizeof(s->data) - s->len;
 	memcpy(&s->data[s->len],data,data_length);
 	s->len+=data_length;
-	dprintf(4,"s->len: %d\n", s->len);
+	dprintf(7,"s->len: %d\n", s->len);
 	s->cbcnt++;
-	dprintf(4,"s->cbcnt: %d\n", s->cbcnt);
+	dprintf(7,"s->cbcnt: %d\n", s->cbcnt);
 }
-
-#if 0
-void my_notification_cb(uint16_t handle, const uint8_t* data, size_t data_length, void* user_data) {
-	printf("Notification on handle 0x%02x\n", handle);
-}
-#endif
 
 static int bt_open(void *handle) {
 	bt_session_t *s = handle;
@@ -162,8 +156,9 @@ static int bt_write(void *handle,...) {
 static int bt_close(void *handle) {
 	bt_session_t *s = handle;
 
+	dprintf(1,"s->c: %p\n",s->c);
 	if (s->c) {
-//		gattlib_notification_stop(s->c, &s->uuid);
+		gattlib_notification_stop(s->c, &s->uuid);
 		gattlib_disconnect(s->c);
 		s->c = 0;
 	}

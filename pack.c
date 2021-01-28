@@ -1,49 +1,280 @@
 
-#include <time.h>
-#include <pthread.h>
+#define _GNU_SOURCE
+#include <sched.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
 #include "mybmm.h"
 #include "uuid.h"
 #include "worker.h"
+#include "parson.h"
+#include "mqtt.h"
 
-int pack_update(mybmm_pack_t *pp) {
-	int r;
+int pack_mqtt_send(mybmm_config_t *conf,mybmm_pack_t *pp) {
+	register int i,j;
+	char temp[256],*p;
+	unsigned long mask;
+	JSON_Value *root_value;
+	JSON_Object *root_object;
+	struct pack_states {
+		int mask;
+		char *label;
+	} states[] = {
+		{ MYBMM_PACK_STATE_CHARGING, "Charging" },
+		{ MYBMM_PACK_STATE_DISCHARGING, "Discharging" },
+		{ MYBMM_PACK_STATE_BALANCING, "Balancing" },
+	};
+#define NSTATES (sizeof(states)/sizeof(struct pack_states))
 
-	dprintf(1,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
-	dprintf(5,"%s: opening...\n", pp->name);
-	if (pp->open(pp->handle)) {
-		dprintf(1,"%s: open error\n",pp->name);
+	/* Create JSON data */
+	root_value = json_value_init_object();
+	root_object = json_value_get_object(root_value);
+
+	if (get_timestamp(temp,sizeof(temp),1) == 0) json_object_set_string(root_object, "timestamp", temp);
+	json_object_set_string(root_object, "name", pp->name);
+	json_object_set_string(root_object, "uuid", pp->uuid);
+	json_object_set_number(root_object, "state", pp->state);
+	json_object_set_number(root_object, "errcode", pp->error);
+	json_object_set_string(root_object, "errmsg", pp->errmsg);
+	json_object_set_number(root_object, "capacity", pp->capacity);
+	json_object_set_number(root_object, "voltage", pp->voltage);
+	json_object_set_number(root_object, "current", pp->current);
+	if (pp->ntemps) {
+		p = temp;
+		p += sprintf(p,"[ ");
+		dprintf(4,"ntemps: %d\n", pp->ntemps);
+		for(i=0; i < pp->ntemps; i++) {
+			if (i) p += sprintf(p,",");
+			p += sprintf(p, "%.1f",pp->temps[i]);
+		}
+		strcat(temp," ]");
+		dprintf(4,"temp: %s\n", temp);
+		json_object_dotset_value(root_object, "temps", json_parse_string(temp));
+	}
+	if (pp->cells) {
+		p = temp;
+		p += sprintf(p,"[ ");
+		for(i=0; i < pp->cells; i++) {
+			if (i) p += sprintf(p,",");
+			p += sprintf(p, "%.3f",pp->cellvolt[i]);
+		}
+		strcat(temp," ]");
+		dprintf(4,"temp: %s\n", temp);
+		json_object_dotset_value(root_object, "cellvolt", json_parse_string(temp));
+#if 0
+		p = temp;
+		p += sprintf(p,"[ ");
+		for(i=0; i < pp->cells; i++) {
+			if (i) p += sprintf(p,",");
+			p += sprintf(p, "%.3f",pp->cellres[i]);
+		}
+		strcat(temp," ]");
+		dprintf(4,"temp: %s\n", temp);
+		json_object_dotset_value(root_object, "cellres", json_parse_string(temp));
+#endif
+	}
+	json_object_set_number(root_object, "cell_min", pp->cell_min);
+	json_object_set_number(root_object, "cell_max", pp->cell_max);
+	json_object_set_number(root_object, "cell_diff", pp->cell_diff);
+	json_object_set_number(root_object, "cell_avg", pp->cell_avg);
+
+	/* States */
+	temp[0] = 0;
+	p = temp;
+	for(i=j=0; i < NSTATES; i++) {
+		if (mybmm_check_state(pp,states[i].mask)) {
+			if (j) p += sprintf(p,",");
+			p += sprintf(p,states[i].label);
+			j++;
+		}
+	}
+	json_object_set_string(root_object, "states", temp);
+
+	mask = 1;
+	for(i=0; i < pp->cells; i++) {
+		temp[i] = ((pp->balancebits & mask) != 0 ? '1' : '0');
+		mask <<= 1;
+	}
+	temp[i] = 0;
+	json_object_set_string(root_object, "balancebits", temp);
+
+	/* TODO: protection info ... already covered with 'error/errmsg?' */
+#if 0
+        struct {
+                unsigned sover: 1;              /* Single overvoltage protection */
+                unsigned sunder: 1;             /* Single undervoltage protection */
+                unsigned gover: 1;              /* Whole group overvoltage protection */
+                unsigned gunder: 1;             /* Whole group undervoltage protection */
+                unsigned chitemp: 1;            /* Charge over temperature protection */
+                unsigned clowtemp: 1;           /* Charge low temperature protection */
+                unsigned dhitemp: 1;            /* Discharge over temperature protection */
+                unsigned dlowtemp: 1;           /* Discharge low temperature protection */
+                unsigned cover: 1;              /* Charge overcurrent protection */
+                unsigned cunder: 1;             /* Discharge overcurrent protection */
+                unsigned shorted: 1;            /* Short circuit protection */
+                unsigned ic: 1;                 /* Front detection IC error */
+                unsigned mos: 1;                /* Software lock MOS */
+        } protect;
+#endif
+//	p = json_serialize_to_string_pretty(root_value);
+	p = json_serialize_to_string(root_value);
+#if 0
+	dprintf(1,"sending mqtt data...\n");
+	if (mqtt_send(pp->mqtt_handle, p, 15)) {
+		dprintf(1,"mqtt send error!\n");
 		return 1;
 	}
-	dprintf(5,"%s: reading...\n", pp->name);
-	r = pp->read(pp->handle,0,0);
-	dprintf(5,"%s: closing\n", pp->name);
-	pp->close(pp->handle);
-	dprintf(5,"%s: returning: %d\n", pp->name, r);
-	if (!r) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
-	return r;
+#else
+	sprintf(temp,"%s/%s",conf->mqtt_topic,pp->name);
+	mqtt_fullsend(conf->mqtt_broker,pp->name, p, temp);
+#endif
+	json_free_serialized_string(p);
+	json_value_free(root_value);
+	return 0;
 }
 
-/* Special func for worker */
-int pack_worker_update(mybmm_pack_t *pp) {
+void pack_mqtt_reconnect(void *ctx, char *cause) {
+	mybmm_pack_t *pp = ctx;
+
+	dprintf(1,"++++ RECONNECT: cause: %s\n", cause);
+	mqtt_connect(pp->mqtt_handle,20);
+}
+
+//int do_pack_update(void *ctx) {
+//	mybmm_pack_t *pp = ctx;
+int do_pack_update(mybmm_pack_t *pp) {
 	int r;
 
-	dprintf(1,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
-	dprintf(5,"%s: opening...\n", pp->name);
+	dprintf(2,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
+	dprintf(4,"%s: opening...\n", pp->name);
 	if (pp->open(pp->handle)) {
 		dprintf(1,"%s: open error\n",pp->name);
 		return 1;
 	}
-
-	/* Before reading, push close function */
-	pthread_cleanup_push((void (*)(void *))pp->close,pp->handle);
-
-	dprintf(5,"%s: reading...\n", pp->name);
+	dprintf(4,"%s: reading...\n", pp->name);
 	r = pp->read(pp->handle,0,0);
-	dprintf(5,"%s: closing\n", pp->name);
-	pthread_cleanup_pop(1);
-	dprintf(5,"%s: returning: %d\n", pp->name, r);
-	if (!r) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
+	dprintf(4,"%s: closing\n", pp->name);
+	pp->close(pp->handle);
+	dprintf(4,"%s: returning: %d\n", pp->name, r);
+	if (!r) {
+		float total;
+		int i;
+
+		mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
+		/* Set min/max/diff/avg */
+		pp->cell_max = 0.0;
+		pp->cell_min = pp->conf->cell_crit_high;
+		total = 0.0;
+		for(i=0; i < pp->cells; i++) {
+			if (pp->cellvolt[i] < pp->cell_min)
+				pp->cell_min = pp->cellvolt[i];
+			if (pp->cellvolt[i] > pp->cell_max)
+				pp->cell_max = pp->cellvolt[i];
+			total += pp->cellvolt[i];
+		}
+		pp->cell_diff = pp->cell_max - pp->cell_min;
+		pp->cell_avg = total / pp->cells;
+		if (!(int)pp->voltage) pp->voltage = total;
+	}
 	return r;
+}
+int _do_pack_update(void *ctx) {
+	exit(do_pack_update(ctx));
+}
+
+#define TIMEOUT 10
+#define STACK_SIZE 32768
+
+int pack_update(mybmm_pack_t *pp) {
+	int pid,r,status;
+	time_t start,curr,diff;
+	char *stack, *stackTop;
+
+	stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+	if (stack == MAP_FAILED) {
+		perror("mmap");
+		return -1;
+	}
+	stackTop = stack + STACK_SIZE;
+
+	dprintf(1,"cloning...\n");
+//	pid = clone(_do_pack_update, stackTop, CLONE_FILES|CLONE_FS|CLONE_VM|SIGCHLD, pp);
+	pid = clone(_do_pack_update, stackTop, CLONE_VM|SIGCHLD, pp);
+	dprintf(1,"pid: %d\n", pid);
+	if (pid < 0) {
+		perror("clone");
+		munmap(stack,STACK_SIZE);
+		return -1;
+	}
+	sleep(1);
+	dprintf(1,"waiting on pid...\n");
+	time(&start);
+	while(1) {
+		r = waitpid(pid,&status,WNOHANG);
+		dprintf(1,"r: %d\n",r);
+		if (r < 0) {
+			perror("waitpid");
+			break;
+		}
+		dprintf(1,"WIFEXITED: %d\n", WIFEXITED(status));
+		if (WIFEXITED(status)) break;
+		time(&curr);
+		diff = curr - start;
+		dprintf(1,"start: %d, curr: %d, diff: %d\n", (int)start, (int)curr, (int)diff);
+		if (diff >= TIMEOUT) {
+			dprintf(1,"KILLING PID: %d\n", pid);
+			kill(SIGTERM,pid);
+//			kill(9,pid);
+			break;
+		}
+		sleep(1);
+	}
+	if (WIFEXITED(status)) dprintf(1,"WEXITSTATUS: %d\n", WEXITSTATUS(status));
+	status = (WIFEXITED(status) ? WEXITSTATUS(status) : 1);
+	dprintf(1,"status: %d\n", status);
+	if (!status) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
+	munmap(stack,STACK_SIZE);
+	return status;
+
+#if 0
+	dprintf(1,"forking...\n");
+	pid = fork();
+	if (pid < 0) {
+		/* Error */
+		perror("fork");
+		return -1;
+	} else if (pid == 0) {
+		/* Call func */
+		_exit(do_pack_update(pp));
+	} else {
+		dprintf(1,"waiting on pid...\n");
+		time(&start);
+		while(1) {
+			r = waitpid(pid,&status,WNOHANG);
+			dprintf(1,"r: %d\n",r);
+			if (r < 0) return 1;
+			dprintf(1,"WIFEXITED: %d\n", WIFEXITED(status));
+			if (WIFEXITED(status)) break;
+			time(&curr);
+			diff = curr - start;
+			dprintf(1,"start: %d, curr: %d, diff: %d\n", (int)start, (int)curr, (int)diff);
+			if (diff >= TIMEOUT) {
+				dprintf(1,"KILLING PID: %d\n", pid);
+				kill(SIGTERM,pid);
+				break;
+			}
+			sleep(1);
+		}
+		if (WIFEXITED(status)) dprintf(1,"WEXITSTATUS: %d\n", WEXITSTATUS(status));
+		status = (WIFEXITED(status) ? WEXITSTATUS(status) : 1);
+		dprintf(1,"status: %d\n", status);
+		if (!status) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
+		return status;
+	}
+
+	return 0;
+#endif
 }
 
 int pack_update_all(mybmm_config_t *conf, int wait) {
@@ -55,7 +286,7 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
 		mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
-		worker_exec(conf->pack_pool,(worker_func_t)pack_worker_update,pp);
+		worker_exec(conf->pack_pool,(worker_func_t)do_pack_update,pp);
 	}
 	worker_wait(conf->pack_pool,wait);
 	worker_killbusy(conf->pack_pool);
@@ -64,43 +295,15 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
 		pp->close(pp->handle);
+		dprintf(1,"%s: updated: %d\n", pp->name, mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED));
+		if (mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) pack_mqtt_send(conf,pp);
 	}
 
 	return 0;
 }
-
-#if 0
-static void *pack_thread(void *arg) {
-	mybmm_config_t *conf = arg;
-	mybmm_pack_t *pp;
-	worker_pool_t *pool;
-
-	pool = worker_create_pool(list_count(conf->packs));
-
-	while(1) {
-		list_reset(conf->packs);
-		while((pp=list_get_next(conf->packs)) != 0) {
-			mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
-			worker_exec(pool,(worker_func_t)pack_worker_update,pp);
-		}
-		worker_wait(pool,0);
-
-		while((pp=list_get_next(conf->packs)) != 0) {
-			if (!mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) {
-				dprintf(1,"pack %s update failed!\n",pp->name);
-				pp->failed++;
-			}
-		}
-//		sleep(conf->pack_refresh_interval);
-		sleep(30);
-	}
-
-	return 0;
-}
-#endif
 
 int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
-        struct cfg_proctab packtab[] = {
+	struct cfg_proctab packtab[] = {
 		{ packname, "name", "Pack name", DATA_TYPE_STRING,&pp->name,sizeof(pp->name), 0 },
 		{ packname, "uuid", "Pack UUID", DATA_TYPE_STRING,&pp->uuid,sizeof(pp->uuid), 0 },
 		{ packname, "type", "Pack BMS type", DATA_TYPE_STRING,&pp->type,sizeof(pp->type), 0 },
@@ -108,8 +311,8 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		{ packname, "target", "Pack address/interface/device", DATA_TYPE_STRING,&pp->target,sizeof(pp->target), 0 },
 		{ packname, "opts", "Pack-specific options", DATA_TYPE_STRING,&pp->opts,sizeof(pp->opts), 0 },
 		{ packname, "capacity", "Pack Capacity in AH", DATA_TYPE_FLOAT,&pp->capacity, 0, 0 },
+//		{ packname, "mqtt_topic", "Pack Capacity in AH", DATA_TYPE_STRING,&pp->mqtt_topic, sizeof(pp->mqtt_topic), 0 },
 		CFG_PROCTAB_END
-
 	};
 	mybmm_module_t *mp, *tp;
 
@@ -155,6 +358,23 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		}
 	}
 
+	if (strlen(conf->mqtt_broker)) {
+		char topic[192];
+		int r;
+
+		/* Create a new MQTT session and connect to the broker */
+		sprintf(topic,"%s/%s",conf->mqtt_topic,pp->name);
+		DDLOG("topic: %s\n",topic);
+		pp->mqtt_handle = mqtt_new(conf->mqtt_broker,pp->name,topic);
+
+		dprintf(4,"Connecting to Broker: %s\n",conf->mqtt_broker);
+		if (mqtt_connect(pp->mqtt_handle,20)) return 1;
+
+		/* Reconnect if lost */
+		r = mqtt_setcb(pp->mqtt_handle, pp, pack_mqtt_reconnect, 0, 0);
+		dprintf(1,"setcb rc: %d\n", r);
+	}
+
 	/* Get capability mask */
 	dprintf(1,"capabilities: %02x\n", mp->capabilities);
 	pp->capabilities = mp->capabilities;
@@ -168,6 +388,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 	/* Add the pack */
 	dprintf(3,"adding pack...\n");
 	list_add(conf->packs,pp,0);
+	pp->conf = conf;
 
 	dprintf(3,"done!\n");
 	return 0;
@@ -227,28 +448,6 @@ int pack_init(mybmm_config_t *conf) {
 	dprintf(3,"done!\n");
 	return 0;
 }
-
-#if 0
-int pack_start_update(mybmm_config_t *conf) {
-	pthread_attr_t attr;
-
-	/* Create a detached thread */
-	dprintf(3,"Creating thread...\n");
-	if (pthread_attr_init(&attr)) {
-		dprintf(0,"pthread_attr_init: %s\n",strerror(errno));
-		return 1;
-	}
-	if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
-		dprintf(0,"pthread_attr_setdetachstate: %s\n",strerror(errno));
-		return 1;
-	}
-	if (pthread_create(&conf->pack_tid,&attr,&pack_thread,conf)) {
-		dprintf(0,"pthread_create: %s\n",strerror(errno));
-		return 1;
-	}
-	return 0;
-}
-#endif
 
 #if 0
 int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp) {
