@@ -71,5 +71,9 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp);
 int pack_init(mybmm_config_t *conf);
 int pack_start_update(mybmm_config_t *conf);
 int pack_check(mybmm_config_t *conf,mybmm_pack_t *pp);
+#ifdef MQTT
+int pack_send_mqtt(mybmm_config_t *conf,mybmm_pack_t *pp);
+#endif
+
 
 #endif

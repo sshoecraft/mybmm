@@ -12,7 +12,7 @@
 
 #ifdef MQTT
 #include "mqtt.h"
-int pack_mqtt_send(mybmm_config_t *conf,mybmm_pack_t *pp) {
+int pack_send_mqtt(mybmm_config_t *conf,mybmm_pack_t *pp) {
 	register int i,j;
 	char temp[256],*p;
 	unsigned long mask;
@@ -128,7 +128,7 @@ int pack_mqtt_send(mybmm_config_t *conf,mybmm_pack_t *pp) {
 	}
 #else
 	sprintf(temp,"%s/%s",conf->mqtt_topic,pp->name);
-	mqtt_fullsend(conf->mqtt_broker,pp->name, p, temp);
+	mqtt_fullsend(conf->mqtt_broker,pp->name, p, temp, conf->mqtt_username, conf->mqtt_password);
 #endif
 	json_free_serialized_string(p);
 	json_value_free(root_value);
@@ -139,13 +139,11 @@ void pack_mqtt_reconnect(void *ctx, char *cause) {
 	mybmm_pack_t *pp = ctx;
 
 	dprintf(1,"++++ RECONNECT: cause: %s\n", cause);
-	mqtt_connect(pp->mqtt_handle,20);
+	mqtt_connect(pp->mqtt_handle,20, pp->conf->mqtt_username, pp->conf->mqtt_password);
 }
 #endif
 
-//int do_pack_update(void *ctx) {
-//	mybmm_pack_t *pp = ctx;
-int do_pack_update(mybmm_pack_t *pp) {
+int pack_update(mybmm_pack_t *pp) {
 	int r;
 
 	dprintf(2,"pack: name: %s, type: %s, transport: %s\n", pp->name, pp->type, pp->transport);
@@ -181,14 +179,14 @@ int do_pack_update(mybmm_pack_t *pp) {
 	}
 	return r;
 }
-int _do_pack_update(void *ctx) {
-	exit(do_pack_update(ctx));
-}
 
+#if 0
+
+/* this was a "no" */
 #define TIMEOUT 10
 #define STACK_SIZE 32768
 
-int pack_update(mybmm_pack_t *pp) {
+int run_pack_update(mybmm_pack_t *pp) {
 	int pid,r,status;
 	time_t start,curr,diff;
 	char *stack, *stackTop;
@@ -238,46 +236,8 @@ int pack_update(mybmm_pack_t *pp) {
 	if (!status) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
 	munmap(stack,STACK_SIZE);
 	return status;
-
-#if 0
-	dprintf(1,"forking...\n");
-	pid = fork();
-	if (pid < 0) {
-		/* Error */
-		perror("fork");
-		return -1;
-	} else if (pid == 0) {
-		/* Call func */
-		_exit(do_pack_update(pp));
-	} else {
-		dprintf(1,"waiting on pid...\n");
-		time(&start);
-		while(1) {
-			r = waitpid(pid,&status,WNOHANG);
-			dprintf(1,"r: %d\n",r);
-			if (r < 0) return 1;
-			dprintf(1,"WIFEXITED: %d\n", WIFEXITED(status));
-			if (WIFEXITED(status)) break;
-			time(&curr);
-			diff = curr - start;
-			dprintf(1,"start: %d, curr: %d, diff: %d\n", (int)start, (int)curr, (int)diff);
-			if (diff >= TIMEOUT) {
-				dprintf(1,"KILLING PID: %d\n", pid);
-				kill(SIGTERM,pid);
-				break;
-			}
-			sleep(1);
-		}
-		if (WIFEXITED(status)) dprintf(1,"WEXITSTATUS: %d\n", WEXITSTATUS(status));
-		status = (WIFEXITED(status) ? WEXITSTATUS(status) : 1);
-		dprintf(1,"status: %d\n", status);
-		if (!status) mybmm_set_state(pp,MYBMM_PACK_STATE_UPDATED);
-		return status;
-	}
-
-	return 0;
-#endif
 }
+#endif
 
 int pack_update_all(mybmm_config_t *conf, int wait) {
 	mybmm_pack_t *pp;
@@ -288,7 +248,7 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 	list_reset(conf->packs);
 	while((pp = list_get_next(conf->packs)) != 0) {
 		mybmm_clear_state(pp,MYBMM_PACK_STATE_UPDATED);
-		worker_exec(conf->pack_pool,(worker_func_t)do_pack_update,pp);
+		worker_exec(conf->pack_pool,(worker_func_t)pack_update,pp);
 	}
 	worker_wait(conf->pack_pool,wait);
 	worker_killbusy(conf->pack_pool);
@@ -299,7 +259,7 @@ int pack_update_all(mybmm_config_t *conf, int wait) {
 		pp->close(pp->handle);
 		dprintf(1,"%s: updated: %d\n", pp->name, mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED));
 #ifdef MQTT
-		if (mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) pack_mqtt_send(conf,pp);
+		if (mybmm_check_state(pp,MYBMM_PACK_STATE_UPDATED)) pack_send_mqtt(conf,pp);
 #endif
 	}
 
@@ -329,7 +289,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 
 		dprintf(4,"gen'ing UUID...\n");
 		uuid_generate_random(uuid);
-		uuid_unparse(uuid, pp->uuid);
+		my_uuid_unparse(uuid, pp->uuid);
 		dprintf(4,"pp->uuid: %s\n", pp->uuid);
 		cfg_set_item(conf->cfg,packname,"uuid",0,pp->uuid);
 		/* Signal conf to save the file */
@@ -372,7 +332,7 @@ int pack_add(mybmm_config_t *conf, char *packname, mybmm_pack_t *pp) {
 		pp->mqtt_handle = mqtt_new(conf->mqtt_broker,pp->name,topic);
 
 		dprintf(4,"Connecting to Broker: %s\n",conf->mqtt_broker);
-		if (mqtt_connect(pp->mqtt_handle,20)) return 1;
+		if (mqtt_connect(pp->mqtt_handle,20,conf->mqtt_username,conf->mqtt_password)) return 1;
 
 		/* Reconnect if lost */
 		r = mqtt_setcb(pp->mqtt_handle, pp, pack_mqtt_reconnect, 0, 0);

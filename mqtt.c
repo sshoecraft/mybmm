@@ -59,17 +59,29 @@ struct mqtt_session *mqtt_new(char *address, char *clientid, char *topic) {
 	return s;
 }
 
-int mqtt_connect(mqtt_session_t *s, int interval) {
+int mqtt_connect(mqtt_session_t *s, int interval, char *user, char *pass) {
 	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
 	int rc;
+
+	dprintf(2,"interval: %d, user: %s, pass: %s\n", interval, user, pass);
 
 	if (!s) return 1;
 	conn_opts.keepAliveInterval = interval;
 	conn_opts.cleansession = 1;
+	if (strlen(user)) {
+		conn_opts.username = user;
+		if (strlen(pass)) conn_opts.password = pass;
+	}
 	rc = MQTTClient_connect(s->c, &conn_opts);
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
-		lprintf(LOG_SYSERR,"MQTTClient_connect");
+		if (rc == 5) {
+			printf("error: bad username or password\n");
+			return 1;
+		} else {
+			char *p = (char *)MQTTReasonCode_toString(rc);
+			lprintf(LOG_ERROR,"MQTTClient_connect: %s\n",p ? p : "cant connect");
+		}
 		return 1;
 	}
 	return 0;
@@ -77,6 +89,8 @@ int mqtt_connect(mqtt_session_t *s, int interval) {
 
 int mqtt_disconnect(mqtt_session_t *s, int timeout) {
 	int rc;
+
+	dprintf(2,"timeout: %d\n", timeout);
 
 	if (!s) return 1;
 	rc = MQTTClient_disconnect(s->c, timeout);
@@ -96,8 +110,8 @@ int mqtt_send(mqtt_session_t *s, char *message, int timeout) {
 	MQTTClient_deliveryToken token;
 	int rc;
 
-	if (!s) return 1;
 	dprintf(2,"message: %s, timeout: %d\n", message, timeout);
+
 	pubmsg.payload = message;
 	pubmsg.payloadlen = strlen(message);
 	pubmsg.qos = 1;
@@ -105,7 +119,7 @@ int mqtt_send(mqtt_session_t *s, char *message, int timeout) {
 	rc = MQTTClient_publishMessage(s->c, s->topic, &pubmsg, &token);
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
-		lprintf(LOG_SYSERR,"MQTTClient_publishMessage");
+		lprintf(LOG_ERROR,"MQTTClient_publishMessage: %s\n",MQTTReasonCode_toString(rc));
 		return 1;
 	}
 	rc = MQTTClient_waitForCompletion(s->c, token, timeout * 1000);
@@ -137,11 +151,11 @@ int mqtt_sub(mqtt_session_t *s, char *topic) {
 }
 
 
-int mqtt_fullsend(char *address, char *clientid, char *message, char *topic) {
+int mqtt_fullsend(char *address, char *clientid, char *message, char *topic, char *user, char *pass) {
 	int rc = 1;
 	mqtt_session_t *s = mqtt_new(address, clientid, topic);
 	if (!s) return 1;
-	if (mqtt_connect(s,20)) goto mqtt_send_error;
+	if (mqtt_connect(s,20,user,pass)) goto mqtt_send_error;
 	if (mqtt_send(s,message,10)) goto mqtt_send_error;
 	rc = 0;
 mqtt_send_error:

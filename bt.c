@@ -22,7 +22,9 @@ struct bt_session {
 	gatt_connection_t *c;
 	uuid_t uuid;
 	char target[32];
+	char opts[32];
 	char data[4096];
+	int not;
 	int len;
 	int cbcnt;
 };
@@ -35,12 +37,13 @@ static int bt_init(mybmm_config_t *conf) {
 static void *bt_new(mybmm_config_t *conf, ...) {
 	bt_session_t *s;
 	va_list ap;
-	char *target;
+	char *target,*opts;
 
 	va_start(ap,conf);
 	target = va_arg(ap,char *);
+	opts = va_arg(ap,char *);
 	va_end(ap);
-	dprintf(5,"target: %s\n", target);
+	dprintf(5,"target: %s, opts: %s\n", target, opts);
 
 	s = calloc(1,sizeof(*s));
 	if (!s) {
@@ -49,6 +52,11 @@ static void *bt_new(mybmm_config_t *conf, ...) {
 	}
 	s->c = 0;
 	strcpy(s->target,target);
+	if (strlen(opts))
+		strcpy(s->opts,opts);
+	else
+		strcpy(s->opts,"0xffe1");
+	s->not = 0;
 	return s;
 }
 
@@ -69,8 +77,7 @@ static int bt_open(void *handle) {
 	bt_session_t *s = handle;
 	uint16_t on = 0x0001;
 
-#define UUID "0xffe1"
-	if (gattlib_string_to_uuid(UUID, strlen(UUID)+1, &s->uuid) < 0) {
+	if (gattlib_string_to_uuid(s->opts, strlen(s->opts)+1, &s->uuid) < 0) {
 		fprintf(stderr, "Fail to convert string to UUID\n");
 		return 1;
 	}
@@ -90,6 +97,8 @@ static int bt_open(void *handle) {
 		dprintf(1,"error: failed to start bluetooth notification.\n");
 		gattlib_disconnect(s->c);
 		return 1;
+	} else {
+		s->not = 1;
 	}
 	dprintf(1,"s->c: %p\n", s->c);
 
@@ -158,7 +167,7 @@ static int bt_close(void *handle) {
 
 	dprintf(1,"s->c: %p\n",s->c);
 	if (s->c) {
-		gattlib_notification_stop(s->c, &s->uuid);
+		if (s->not) gattlib_notification_stop(s->c, &s->uuid);
 		gattlib_disconnect(s->c);
 		s->c = 0;
 	}

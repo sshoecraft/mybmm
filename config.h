@@ -13,7 +13,13 @@ typedef struct mybmm_inverter mybmm_inverter_t;
 struct mybmm_pack;
 typedef struct mybmm_pack mybmm_pack_t;
 
+struct mqtt_info;
+typedef struct mqtt_info mqtt_info_t;
+
 struct mybmm_config {
+#ifdef MQTT
+	mqtt_info_t *mqtt;		/* MQTT info */
+#endif
 	char mqtt_broker[64];		/* MQTT Broker URL */
 	char mqtt_topic[128];		/* MQTT Base Topic */
 	char mqtt_username[32];		/* MQTT Username */

@@ -246,7 +246,7 @@ void uuid_unparse_upper(const uuid_t *uu, char *out)
 	uuid_unparse_x(uu, out,	fmt_upper);
 }
 
-void uuid_unparse(const uuid_t *uu, char *out)
+void my_uuid_unparse(const uuid_t *uu, char *out)
 {
 	uuid_unparse_x(uu, out, FMT_DEFAULT);
 }

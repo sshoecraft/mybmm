@@ -12,7 +12,7 @@ typedef struct {
 
 void uuid_generate_random(uuid_t);
 int uuid_parse(const char *uuid, uuid_t *u);
-void uuid_unparse(uuid_t uu, char *out);
+void my_uuid_unparse(uuid_t uu, char *out);
 void uuid_unparse_upper(uuid_t uu, char *out);
 void uuid_unparse_lower(uuid_t uu, char *out);
 

@@ -1,32 +1,16 @@
 
-BLUETOOTH=no
-MQTT=no
+DEBUG=yes
+BLUETOOTH=yes
+MQTT=yes
 
 PROG=$(shell basename $(shell pwd))
 INVERTERS=si.c
 CELLMONS=jbd.c preh.c jk.c
 TRANSPORTS=can.c can_ip.c dsfuncs.c serial.c ip.c bt.c
-ifneq ($(BLUETOOTH),yes)
-_TMPVAR := $(TRANSPORTS)
-TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
-endif
 UTILS=worker.c uuid.c list.c utils.c cfg.c
 SRCS=main.c config.c db.c module.c inverter.c pack.c battery.c parson.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
-LIBS+=-ldl -lpthread
-#CFLAGS=-DMYBMM
-#CFLAGS+=-Wall -O2 -pipe
-CFLAGS+=-Wall -g -DDEBUG=1
-LDFLAGS+=-rdynamic
-ifeq ($(BLUETOOTH),yes)
-CFLAGS+=-DBLUETOOTH
-LIBS+=-lgattlib -lglib-2.0 -lpthread
-endif
-ifeq ($(MQTT),yes)
-SRCS+=mqtt.c
-CFLAGS+=-DMQTT
-LIBS+=-lpaho-mqtt3c
-endif
-OBJS=$(SRCS:.c=.o)
+
+include rules.mk
 
 #export MQTT_C_CLIENT_TRACE=ON
 

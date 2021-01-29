@@ -69,7 +69,7 @@ int inverter_mqtt_send(mybmm_inverter_t *inv) {
 	}
 #else
 	sprintf(temp,"/Inverter/%s",inv->name);
-	mqtt_fullsend(inv->conf->mqtt_broker,inv->name, p, temp);
+	mqtt_fullsend(inv->conf->mqtt_broker,inv->name, p, temp, inv->conf->mqtt_username, inv->conf->mqtt_password);
 #endif
 	json_free_serialized_string(p);
 	json_value_free(root_value);
@@ -169,7 +169,7 @@ static void get_tab(mybmm_config_t *conf, char *name,mybmm_inverter_t *inv) {
 
 		dprintf(1,"gen'ing UUID...\n");
 		uuid_generate_random(uuid);
-		uuid_unparse(uuid, inv->uuid);
+		my_uuid_unparse(uuid, inv->uuid);
 		dprintf(1,"inv->uuid: %s\n", inv->uuid);
 		printf("name: %s\n", name);
 		cfg_set_item(conf->cfg,name,"uuid",0,inv->uuid);

@@ -25,6 +25,7 @@ int get_mqtt_conf(mybmm_config_t *conf) {
 
 int read_config(mybmm_config_t *conf) {
         struct cfg_proctab myconf[] = {
+		{ "mybmm", "debug", "debug level", DATA_TYPE_INT, &debug, 0, 0 },
 		{ "mybmm", "interval", "Time between updates", DATA_TYPE_INT, &conf->interval, 0, "30" },
 		{ "mybmm", "max_charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->max_charge_amps, 0, "-1" },
 		{ "mybmm", "max_discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->max_discharge_amps, 0, "-1" },
