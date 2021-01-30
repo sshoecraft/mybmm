@@ -11,13 +11,18 @@ LICENSE file in the root directory of this source tree.
 #include <dlfcn.h>
 #include "mybmm.h"
 
-#if 0
+#ifdef STATIC_MODULES
 extern mybmm_module_t si_module;
 extern mybmm_module_t jbd_module;
-extern mybmm_module_t ip_module;
-extern mybmm_module_t can_module;
-extern mybmm_module_t canproxy_module;
+#ifndef JBDTOOL
+extern mybmm_module_t jk_module;
 extern mybmm_module_t preh_module;
+#endif
+extern mybmm_module_t bt_module;
+extern mybmm_module_t ip_module;
+extern mybmm_module_t serial_module;
+extern mybmm_module_t can_module;
+extern mybmm_module_t can_ip_module;
 #endif
 
 mybmm_module_t *mybmm_get_module(mybmm_config_t *conf, char *name, int type) {
@@ -60,7 +65,35 @@ mybmm_module_t *mybmm_load_module(mybmm_config_t *conf, char *name, int type) {
 	if (mod_debug) *mod_debug = debug;
 #endif
 
-#if 1
+#ifdef STATIC_MODULES
+	/* Static config */
+#ifndef JBDTOOL
+	if (strcmp(name,"si")==0) {
+		mp = &si_module;
+	} else
+#endif
+	 if (strcmp(name,"jbd")==0) {
+		mp = &jbd_module;
+#ifndef JBDTOOL
+	} else if (strcmp(name,"jk")==0) {
+		mp = &jk_module;
+	} else if (strcmp(name,"preh")==0) {
+		mp = &preh_module;
+#endif
+	} else if (strcmp(name,"bt")==0) {
+		mp = &bt_module;
+	} else if (strcmp(name,"ip")==0) {
+		mp = &ip_module;
+	} else if (strcmp(name,"serial")==0) {
+		mp = &serial_module;
+	} else if (strcmp(name,"can")==0) {
+		mp = &can_module;
+	} else if (strcmp(name,"can_ip")==0) {
+		mp = &can_ip_module;
+	} else {
+		return 0;
+	}
+#else
 	/* Get the module symbol */
 	sprintf(temp,"%s_module",name);
 //	mp = dlsym(conf->dlsym_handle, temp);
@@ -68,21 +101,6 @@ mybmm_module_t *mybmm_load_module(mybmm_config_t *conf, char *name, int type) {
 	dprintf(3,"module: %p\n", mp);
 	if (!mp) {
 		printf("error: cannot find symbol: %s_module: %s\n",name,dlerror());
-		return 0;
-	}
-#else
-	/* Static config */
-	if (strcmp(name,"si")==0) {
-		mp = &si_module;
-	} else if (strcmp(name,"jbd")==0) {
-		mp = &jbd_module;
-	} else if (strcmp(name,"canproxy")==0) {
-		mp = &canproxy_module;
-	} else if (strcmp(name,"preh")==0) {
-		mp = &preh_module;
-	} else if (strcmp(name,"ip")==0) {
-		mp = &preh_module;
-	} else {
 		return 0;
 	}
 #endif
