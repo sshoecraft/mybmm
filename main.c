@@ -327,14 +327,10 @@ int main(int argc, char **argv) {
 		time(&end);
 
 		dprintf(3,"start: %d, end: %d, diff: %d, interval: %d\n",(int)start,(int)end,(int)end-(int)start,conf->interval);
-		diff = end - start;
-		if (diff < conf->interval) {
-			int delay;
-
-			delay = conf->interval - (int)diff;
-			dprintf(1,"interval: %d, diff: %d, delay: %d\n", conf->interval,diff,delay);
-			dprintf(1,"Sleeping for %d seconds...\n",delay);
-			sleep(delay);
+		diff = conf->interval - (end - start);
+		if (end - start < conf->interval) {
+			dprintf(1,"Sleeping for %d seconds...\n",(int)diff);
+			sleep(diff);
 		}
 	}
 

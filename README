@@ -1,0 +1,1 @@
+These are the BMSs supported.  Each is a seperate program that is either run and managed by the director or externally (systemd/init.d)

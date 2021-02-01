@@ -1,7 +1,7 @@
 
 LIBS+=-ldl
 
-#PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
+PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
 
 # Debug
 ifeq ($(DEBUG),yes)
