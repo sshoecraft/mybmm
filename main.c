@@ -184,6 +184,7 @@ int main(int argc, char **argv) {
 	startup = 1;
 
 	while(1) {
+		dprintf(1,"startup: %d\n", startup);
 		if (reconf) {
 			dprintf(1,"calling reconfig...\n");
 			reconfig(conf);
