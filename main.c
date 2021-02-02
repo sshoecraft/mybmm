@@ -109,6 +109,7 @@ static mybmm_config_t *init(int argc, char **argv) {
 	}
 
 	/* Open logfile if specified */
+	if (logfile) logopts |= LOG_CREATE;
 	log_open("mybmm",logfile,logopts);
 
 	conf = get_config(configfile);
