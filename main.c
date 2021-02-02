@@ -167,7 +167,7 @@ static mybmm_config_t *init(int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-	int inv_reported,packs_reported,cell,in_range,npacks;
+	int startup,inv_reported,packs_reported,cell,in_range,npacks;
 	mybmm_config_t *conf;
 	mybmm_inverter_t *inv;
 	mybmm_pack_t *pp;
@@ -179,6 +179,8 @@ int main(int argc, char **argv) {
 	/* Initialize system */
 	conf = init(argc,argv);
 	if (!conf) return 1;
+
+	startup = 1;
 
 	while(1) {
 		if (reconf) {
@@ -308,6 +310,7 @@ int main(int argc, char **argv) {
 		conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
 		dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
 		conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
+		if (startup) conf->charge_amps = 0.1;
 		lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
 
 		dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
@@ -317,11 +320,15 @@ int main(int argc, char **argv) {
 		lprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
 
 		conf->soc = conf->user_soc < 0.0 ? ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0 : conf->user_soc;
+		if (startup) conf->soc = 99.9;
 		lprintf(0,"SoC: %.1f\n", conf->soc);
 		conf->soh = 100.0;
 
 		/* Update inverter */
-		if (inv_reported) inverter_write(conf->inverter);
+		if (inv_reported) {
+			inverter_write(conf->inverter);
+			startup = 1;
+		}
 
 		/* Get ending time */
 		time(&end);
