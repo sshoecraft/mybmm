@@ -328,7 +328,7 @@ int main(int argc, char **argv) {
 		/* Update inverter */
 		if (inv_reported) {
 			inverter_write(conf->inverter);
-			startup = 1;
+			startup = 0;
 		}
 
 		/* Get ending time */
