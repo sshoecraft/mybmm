@@ -56,6 +56,7 @@ struct mqtt_session *mqtt_new(char *address, char *clientid, char *topic) {
 	strncat(s->topic,topic,sizeof(s->topic)-1);
 	s->c = client;
 
+	dprintf(2,"returning: %p\n", s);
 	return s;
 }
 
@@ -63,15 +64,17 @@ int mqtt_connect(mqtt_session_t *s, int interval, char *user, char *pass) {
 	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
 	int rc;
 
-	dprintf(2,"interval: %d, user: %s, pass: %s\n", interval, user, pass);
+	dprintf(2,"s: %p, interval: %d, user: %s, pass: %s\n", s, interval, user, pass);
 
 	if (!s) return 1;
 	conn_opts.keepAliveInterval = interval;
 	conn_opts.cleansession = 1;
-	if (strlen(user)) {
+#if 0
+	if (user && strlen(user)) {
 		conn_opts.username = user;
-		if (strlen(pass)) conn_opts.password = pass;
+		if (pass && strlen(pass)) conn_opts.password = pass;
 	}
+#endif
 	rc = MQTTClient_connect(s->c, &conn_opts);
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
@@ -80,7 +83,8 @@ int mqtt_connect(mqtt_session_t *s, int interval, char *user, char *pass) {
 			return 1;
 		} else {
 			char *p = (char *)MQTTReasonCode_toString(rc);
-			lprintf(LOG_ERROR,"MQTTClient_connect: %s\n",p ? p : "cant connect");
+	//		printf("error: MQTTClient_connect: %s\n",p ? p : "cant connect");
+			printf("\nerror: MQTTClient_connect error\n");
 		}
 		return 1;
 	}
