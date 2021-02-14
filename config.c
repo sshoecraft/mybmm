@@ -37,15 +37,16 @@ int read_config(mybmm_config_t *conf) {
 		{ "mybmm", "cell_high", "Cell high voltage", DATA_TYPE_FLOAT, &conf->cell_high, 0, "-1" },
 		{ "mybmm", "cell_crit_high", "Critical cell high voltage", DATA_TYPE_FLOAT, &conf->cell_crit_high, 0, "-1" },
 		{ "mybmm", "c_rate", "Charge rate", DATA_TYPE_FLOAT, &conf->c_rate, 0, "-1" },
-		{ "mybmm", "d_rate", "Discharge rate", DATA_TYPE_FLOAT, &conf->d_rate, 0, "-1" },
-		{ "mybmm", "database", "Database Connection", DATA_TYPE_STRING, &conf->db_name, sizeof(conf->db_name), "" },
+		{ "mybmm", "e_rate", "Discharge rate", DATA_TYPE_FLOAT, &conf->e_rate, 0, "-1" },
 		/* Forced values */
 		{ "mybmm", "capacity", "Battery Capacity", DATA_TYPE_FLOAT, &conf->user_capacity, 0, "-1" },
 		{ "mybmm", "charge_voltage", "Charge Voltage", DATA_TYPE_FLOAT, &conf->user_charge_voltage, 0, "-1" },
 		{ "mybmm", "charge_amps", "Charge Current", DATA_TYPE_FLOAT, &conf->user_charge_amps, 0, "-1" },
 		{ "mybmm", "discharge_voltage", "Discharge Voltage", DATA_TYPE_FLOAT, &conf->user_discharge_voltage, 0, "-1" },
 		{ "mybmm", "discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->user_discharge_amps, 0, "-1" },
+		{ "mybmm", "charge_max_voltage", "Max Charge Voltage", DATA_TYPE_FLOAT, &conf->user_charge_max_voltage, 0, "-1" },
 		{ "mybmm", "soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
+		{ "mybmm", "use_pack_voltage", "Use voltage from packs, if available", DATA_TYPE_LOGICAL, &conf->use_packv, 0, "0" },
 		CFG_PROCTAB_END
 	};
 

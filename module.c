@@ -42,7 +42,9 @@ mybmm_module_t *mybmm_get_module(mybmm_config_t *conf, char *name, int type) {
 }
 
 mybmm_module_t *mybmm_load_module(mybmm_config_t *conf, char *name, int type) {
+#ifndef STATIC_MODULES
 	char temp[128];
+#endif
 	mybmm_module_t *mp;
 
 	list_reset(conf->modules);

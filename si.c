@@ -200,9 +200,9 @@ static int si_read(void *handle,...) {
 	/* 0x305 Battery voltage Battery current Battery temperature SOC battery */
 	if (s->get_data(s,0x305,data,8)) return 1;
 	inv->battery_voltage = _getshort(&data[0]) / 10.0;
-	inv->battery_current = _getshort(&data[2]) / 10.0;
-	dprintf(1,"battery_voltage: %2.2f, battery_current: %2.2f\n", inv->battery_voltage, inv->battery_current);
-	inv->battery_power = inv->battery_current * inv->battery_voltage;
+	inv->battery_amps = _getshort(&data[2]) / 10.0;
+	dprintf(1,"battery_voltage: %2.2f, battery_amps: %2.2f\n", inv->battery_voltage, inv->battery_amps);
+	inv->battery_power = inv->battery_amps * inv->battery_voltage;
 	dprintf(1,"battery_power: %3.2f\n",inv->battery_power);
 
 	/* 0x308 TotLodPwr L1/L2/L3 */
@@ -258,6 +258,16 @@ static int si_write(void *handle,...) {
 	_putshort(&data[2],conf->soh);
 	_putlong(&data[4],(conf->soc * 100.0));
 	if (s->tp->write(s->tp_handle,0x355,&data,8) < 0) {
+		dprintf(1,"write failed!\n");
+		return 1;
+	}
+
+	dprintf(1,"0x356: battery_voltage: %.1f, battery_amps: %.1f, battery_temp: %.1f\n",
+		conf->battery_voltage, conf->battery_amps, conf->battery_temp);
+	_putshort(&data[0],conf->battery_voltage * 10.0);
+	_putshort(&data[2],conf->battery_amps * 10.0);
+	_putlong(&data[4],conf->battery_temp * 10.0);
+	if (s->tp->write(s->tp_handle,0x356,&data,8) < 0) {
 		dprintf(1,"write failed!\n");
 		return 1;
 	}

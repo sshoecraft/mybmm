@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <pthread.h>
+#include <time.h>
 #include "list.h"
 #include "worker.h"
 
@@ -38,15 +39,18 @@ struct mybmm_config {
 	int system_voltage;		/* System Voltage (defaults to 48) */
 	int battery_chem;		/* Battery type (0=Li-ion, 1=LifePO4, 2=Titanate) */
 	float battery_voltage;		/* Battery Voltage  */
-	float battery_current;		/* Total amount of power into/out of battery */
+	float battery_amps;		/* Total amount of power into/out of battery */
+	float battery_temp;
 	int cells;			/* Number of cells per battery pack */
 	float cell_low;			/* Cell discharge low cutoff */
+	float cell_min;			/* Min cell voltage per chem */
 	float cell_crit_low;		/* Cell critical low */
 	float cell_high;		/* Cell charge high cutoff */
+	float cell_max;			/* Max cell voltage per chem */
 	float cell_crit_high;		/* Cell critical high */
 	float capacity;			/* Total capacity, in AH (all packs) */
 	float c_rate;			/* Charge current rate */
-	float d_rate;			/* Discharge current rate */
+	float e_rate;			/* Discharge current rate */
 	float kwh;			/* Calculated kWh */
 	float soc;			/* State of Charge */
 	float soh;			/* State of Health */
@@ -68,6 +72,16 @@ struct mybmm_config {
 	void *cfg;			/* Config file handle */
 	uint16_t state;			/* States */
 	uint16_t capabilities;		/* Capabilities */
+	int use_packv;
+	int charging;
+	int charge_mode;
+	float charge_max_voltage;
+	float charge_target_voltage;
+	float user_charge_max_voltage;
+	float pack_temp_max,start_temp;
+	float pack_cell_max,pack_cell_min;
+	time_t cv_start_time;
+	float tvolt;
 };
 typedef struct mybmm_config mybmm_config_t;
 

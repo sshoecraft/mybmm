@@ -4,6 +4,7 @@
 
 #include "cfg.h"
 
+float pct(float,float);
 void bindump(char *label,void *bptr,int len);
 void _bindump(long offset,void *bptr,int len);
 char *trim(char *);

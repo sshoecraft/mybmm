@@ -13,8 +13,9 @@ struct mybmm_inverter {
 	char target[32];		/* Device/Interface/Address */
 	char params[64];		/* Inverter-specific params */
 	float battery_voltage;		/* Really? I need to comment this? */
-	float battery_current;		/* batt power, in amps */
+	float battery_amps;		/* batt power, in amps */
 	float battery_power;		/* batt power, in watts */
+	float battery_temp;
 	float grid_power;		/* Grid/Gen watts */
 	float load_power;		/* loads watts */
 	float site_power;		/* pv/wind/caes/chp watts */
@@ -29,6 +30,7 @@ struct mybmm_inverter {
 	uint16_t state;			/* Inverter State */
 	uint16_t capabilities;		/* Capability bits */
 //	int failed;			/* Failed to update count */
+	int have_temp;
 };
 typedef struct mybmm_inverter mybmm_inverter_t;
 

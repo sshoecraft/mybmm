@@ -32,8 +32,9 @@ int inverter_mqtt_send(mybmm_inverter_t *inv) {
 	json_object_set_number(root_object, "errcode", inv->error);
 	json_object_set_string(root_object, "errmsg", inv->errmsg);
 	json_object_set_number(root_object, "battery_voltage", inv->battery_voltage);
-	json_object_set_number(root_object, "battery_current", inv->battery_current);
+	json_object_set_number(root_object, "battery_current", inv->battery_amps);
 	json_object_set_number(root_object, "battery_power", inv->battery_power);
+	json_object_set_number(root_object, "battery_temp", inv->battery_temp);
 #if 0
 	json_object_set_number(root_object, "grid_voltage_l1", inv->grid.voltage.l1);
 	json_object_set_number(root_object, "grid_voltage_l2", inv->grid.voltage.l2);

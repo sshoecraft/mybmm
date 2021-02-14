@@ -11,7 +11,7 @@ _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
 UTILS=worker.c uuid.c list.c utils.c cfg.c
-SRCS=main.c config.c db.c module.c inverter.c pack.c battery.c parson.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
+SRCS=main.c config.c module.c inverter.c pack.c battery.c parson.c $(INVERTERS) $(CELLMONS) $(TRANSPORTS) $(UTILS)
 LIBS+=-ldl -lpthread
 #CFLAGS=-DMYBMM
 #CFLAGS+=-Wall -O2 -pipe
@@ -47,7 +47,7 @@ debug: $(PROG)
 	gdb $(PROG)
 
 install: $(PROG)
-	install -m 755 -o bin -g bin $(PROG) /usr/local/bin
+	sudo install -m 755 -o bin -g bin $(PROG) /usr/local/bin
 
 clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)

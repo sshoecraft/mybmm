@@ -83,8 +83,7 @@ int mqtt_connect(mqtt_session_t *s, int interval, char *user, char *pass) {
 			return 1;
 		} else {
 			char *p = (char *)MQTTReasonCode_toString(rc);
-	//		printf("error: MQTTClient_connect: %s\n",p ? p : "cant connect");
-			printf("\nerror: MQTTClient_connect error\n");
+			printf("error: MQTTClient_connect: %s\n",p ? p : "cant connect");
 		}
 		return 1;
 	}

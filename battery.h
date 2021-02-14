@@ -12,5 +12,8 @@ enum BATTERY_CHEMS {
 };
 
 int battery_init(mybmm_config_t *conf);
+void charge_check(mybmm_config_t *conf);
+void charge_stop(mybmm_config_t *conf,int);
+void charge_start(mybmm_config_t *conf,int);
 
 #endif

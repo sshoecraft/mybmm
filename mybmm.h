@@ -68,6 +68,5 @@ typedef int (*mybmm_module_control_t)(void *,...);
 #define mybmm_is_critvolt(c)	mybmm_check_state(c,MYBMM_CRIT_CELLVOLT)
 
 #define mybmm_force_soc(c,v)	{ c->soc = v; mybmm_set_state(c,MYBMM_FORCE_SOC); }
-#define mybmm_disable_charging(c) { c->charge_amps = 0.0; mybmm_clear_state(c,MYBMM_CHARGING); }
 
 #endif
