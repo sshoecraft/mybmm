@@ -67,7 +67,8 @@ int battery_init(mybmm_config_t *conf) {
 void charge_stop(mybmm_config_t *conf, int rep) {
 	if (rep) lprintf(0,"*** ENDING CHARGE ***\n");
 	mybmm_clear_state(conf,MYBMM_CHARGING);
-	conf->charge_amps = 0.1;
+//	conf->charge_amps = 0.1;
+	conf->charge_amps = 120.0;
 	conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
 
 	dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);

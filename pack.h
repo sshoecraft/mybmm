@@ -2,6 +2,7 @@
 #ifndef __PACK_H
 #define __PACK_H
 
+#include <time.h>
 #include "config.h"
 
 #define MYBMM_PACK_NAME_LEN 32
@@ -55,7 +56,7 @@ struct mybmm_pack {
 	mybmm_module_read_t read;	/* BMS Read */
 	mybmm_module_close_t close;	/* BMS Close */
 	mybmm_module_control_t control;	/* BMS Control */
-	char timestamp[32];		/* Last update timestamp */
+	time_t last_update;		
 };
 typedef struct mybmm_pack mybmm_pack_t;
 

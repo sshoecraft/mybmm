@@ -337,6 +337,21 @@ int main(int argc, char **argv) {
 		conf->battery_voltage = conf->tvolt;
 #endif
 
+        conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+
+        dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
+        conf->discharge_voltage = conf->user_discharge_voltage < 0.0 ? conf->cell_low * conf->cells : conf->user_discharge_voltage;
+        dprintf(2,"conf->e_rate: %f, conf->capacity: %f\n", conf->e_rate, conf->capacity);
+        conf->discharge_amps = conf->user_discharge_amps < 0.0 ? conf->e_rate * conf->capacity : conf->user_discharge_amps;
+        lprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
+
+        dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
+        conf->charge_voltage = conf->charge_target_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+        dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
+        conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
+        lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
+
+
 		lprintf(0,"Battery: voltage: %.1f, current: %.1f, temp: %.1f\n", conf->battery_voltage, conf->battery_amps, conf->battery_temp);
 
 		conf->soc = conf->user_soc < 0.0 ? ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0 : conf->user_soc;
@@ -350,6 +365,11 @@ int main(int argc, char **argv) {
 			if (startup) {
 				conf->charge_amps = 0.1;
 				conf->soc = 99.9;
+#if 0
+			} else {
+				conf->charge_amps = 120.0;
+				conf->discharge_amps = 500.0;
+#endif
 			}
 			inverter_write(conf->inverter);
 		}
