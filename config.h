@@ -41,6 +41,7 @@ struct mybmm_config {
 	float battery_voltage;		/* Battery Voltage  */
 	float battery_amps;		/* Total amount of power into/out of battery */
 	float battery_temp;
+	float frequency;
 	int cells;			/* Number of cells per battery pack */
 	float cell_low;			/* Cell discharge low cutoff */
 	float cell_min;			/* Min cell voltage per chem */
@@ -78,6 +79,7 @@ struct mybmm_config {
 	float charge_max_voltage;
 	float charge_target_voltage;
 	float user_charge_max_voltage;
+	int charge_at_max;
 	float pack_temp_max,start_temp;
 	float pack_cell_max,pack_cell_min;
 	time_t cv_start_time;

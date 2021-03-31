@@ -197,11 +197,28 @@ static int si_read(void *handle,...) {
 	inv->grid_power = (_getshort(&data[0]) * 100.0) + (_getshort(&data[2]) * 100.0) + (_getshort(&data[4]) * 100.0);
 	dprintf(1,"grid_power: %3.2f\n",inv->grid_power);
 
+	/* 0x304 Voltage L1 Voltage L2 Voltage L3 Frequency */
+	/* AC1 = My output */
+	if (s->get_data(s,0x304,data,sizeof(data))) return 1;
+#if 0
+	inv->load_voltage.l1 = (si_getshort(&data[0]) / 10.0);
+	inv->load_voltage.l2 = (si_getshort(&data[2]) / 10.0);
+	inv->load_voltage.l3 = (si_getshort(&data[4]) / 10.0);
+	inv->load_voltage.total = inv->load_voltage.l1 + inv->load_voltage.l2 + inv->load_voltage.l3;
+	inv->load_frequency = (si_getshort(&data[6]) / 100.0);
+	dprintf(1,"load_voltage: %3.2f, frequency: %3.2f\n",inv->load_voltage.total, inv->load_frequency);
+#endif
+	s->conf->frequency = (_getshort(&data[6]) / 100.0);
+	dprintf(1,"frequency: %2.1f\n", s->conf->frequency);
+
+
 	/* 0x305 Battery voltage Battery current Battery temperature SOC battery */
 	if (s->get_data(s,0x305,data,8)) return 1;
 	inv->battery_voltage = _getshort(&data[0]) / 10.0;
 	inv->battery_amps = _getshort(&data[2]) / 10.0;
-	dprintf(1,"battery_voltage: %2.2f, battery_amps: %2.2f\n", inv->battery_voltage, inv->battery_amps);
+//	inv->battery_temp = _getshort(&data[4]) / 10.0;
+	inv->battery_temp = 25.0;
+	dprintf(1,"battery: voltage: %2.2f, amps: %2.2f, temp: %2.1f\n", inv->battery_voltage, inv->battery_amps, inv->battery_temp);
 	inv->battery_power = inv->battery_amps * inv->battery_voltage;
 	dprintf(1,"battery_power: %3.2f\n",inv->battery_power);
 
@@ -248,29 +265,22 @@ static int si_write(void *handle,...) {
 	_putshort(&data[2],(conf->charge_amps * 10.0));
 	_putshort(&data[4],(conf->discharge_amps * 10.0));
 	_putshort(&data[6],(conf->discharge_voltage * 10.0));
-	if (s->tp->write(s->tp_handle,0x351,&data,8) < 0) {
-		dprintf(1,"write failed!\n");
-		return 1;
-	}
+	if (s->tp->write(s->tp_handle,0x351,&data,8) < 0) return 1;
 
 	dprintf(1,"0x355: SOC: %.1f, SOH: %.1f\n", conf->soc, conf->soh);
 	_putshort(&data[0],conf->soc);
 	_putshort(&data[2],conf->soh);
 	_putlong(&data[4],(conf->soc * 100.0));
-	if (s->tp->write(s->tp_handle,0x355,&data,8) < 0) {
-		dprintf(1,"write failed!\n");
-		return 1;
-	}
+	if (s->tp->write(s->tp_handle,0x355,&data,8) < 0) return 1;
 
+#if 0
 	dprintf(1,"0x356: battery_voltage: %.1f, battery_amps: %.1f, battery_temp: %.1f\n",
 		conf->battery_voltage, conf->battery_amps, conf->battery_temp);
 	_putshort(&data[0],conf->battery_voltage * 10.0);
 	_putshort(&data[2],conf->battery_amps * 10.0);
 	_putlong(&data[4],conf->battery_temp * 10.0);
-	if (s->tp->write(s->tp_handle,0x356,&data,8) < 0) {
-		dprintf(1,"write failed!\n");
-		return 1;
-	}
+	if (s->tp->write(s->tp_handle,0x356,&data,8) < 0) return 1;
+#endif
 
 	/* Alarms/Warnings */
 	memset(data,0,sizeof(data));
@@ -280,11 +290,12 @@ static int si_write(void *handle,...) {
 	memset(data,0,sizeof(data));
 	if (s->tp->write(s->tp_handle,0x35B,&data,8)) return 1;
 
+#if 0
 	/* MFG Name */
 	memset(data,' ',sizeof(data));
 #define MFG_NAME "RSW"
 	memcpy(data,MFG_NAME,strlen(MFG_NAME));
-	if (s->tp->write(s->tp_handle,0x35E,&data,8) < 0) return 1;
+//	if (s->tp->write(s->tp_handle,0x35E,&data,8) < 0) return 1;
 
 	/* 0x35F - Bat-Type / BMS Version / Bat-Capacity / reserved Manufacturer ID */
 	_putshort(&data[0],1);
@@ -293,6 +304,7 @@ static int si_write(void *handle,...) {
 	_putshort(&data[4],conf->capacity);
 	_putshort(&data[6],1);
 	if (s->tp->write(s->tp_handle,0x35F,&data,8) < 0) return 1;
+#endif
 
 	return 0;
 }

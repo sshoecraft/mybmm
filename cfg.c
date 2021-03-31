@@ -51,6 +51,7 @@ static void conv_type(int dtype,void *dest,int dlen,int stype,void *src,int slen
 		*fptr = atof(src);
 		break;
 	case DATA_TYPE_LOGICAL:
+		dprintf("src: %s\n", (char *)src);
 		/* yes/no/true/false */
 		{
 			char temp[16];
@@ -60,11 +61,14 @@ static void conv_type(int dtype,void *dest,int dlen,int stype,void *src,int slen
 			i = 0;
 			for(sptr = src; *sptr; sptr++) temp[i++] = tolower(*sptr);
 			temp[i] = 0;
-			if (strcmp(temp,"yes") == 0 || strcmp(temp,"true") == 0)
+			dprintf("temp: %s\n", temp);
+			if (strcmp(temp,"yes") == 0 || strcmp(temp,"true") == 0 || strcmp(temp,"1")==0)
 				*iptr = 1;
 			else
 				*iptr = 0;
+			dprintf("iptr: %d\n", *iptr);
 		}
+		break;
 	case DATA_TYPE_STRING:
 		switch(stype) {
 		case DATA_TYPE_INT:

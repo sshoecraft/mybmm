@@ -59,16 +59,16 @@ int battery_init(mybmm_config_t *conf) {
 	dprintf(1,"e_rate: %.1f\n", conf->e_rate);
 	/* Default capacity is 0 if none specified (cant risk) */
 	conf->capacity = conf->user_capacity < 0.0 ? 0 : conf->user_capacity;
-	charge_start(conf,0);
 	charge_stop(conf,0);
+	charge_start(conf,0);
 	return 0;
 }
 
 void charge_stop(mybmm_config_t *conf, int rep) {
 	if (rep) lprintf(0,"*** ENDING CHARGE ***\n");
 	mybmm_clear_state(conf,MYBMM_CHARGING);
-//	conf->charge_amps = 0.1;
-	conf->charge_amps = 120.0;
+	conf->charge_amps = 0.1;
+//	conf->charge_amps = 120.0;
 	conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
 
 	dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
@@ -83,14 +83,20 @@ void charge_start(mybmm_config_t *conf, int rep) {
 	if (!(int)conf->capacity) return;
 	if (rep) lprintf(0,"*** STARTING CC CHARGE ***\n");
 	mybmm_set_state(conf,MYBMM_CHARGING);
-	dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
-	conf->charge_voltage = conf->charge_target_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+	dprintf(1,"charge_at_max: %d\n", conf->charge_at_max);
+	if (conf->charge_at_max) {
+		conf->charge_voltage = conf->charge_max_voltage;
+	} else {
+		dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
+		conf->charge_voltage = conf->charge_target_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+	}
 	dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
 	conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
 	if (rep) lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
 	conf->charge_mode = 1;
 	conf->tvolt = conf->battery_voltage;
 	conf->start_temp = conf->battery_temp;
+	dprintf(1,"start_temp: %2.1f\n", conf->start_temp);
 }
 
 static void cvremain(time_t start, time_t end) {
@@ -117,6 +123,7 @@ void charge_check(mybmm_config_t *conf) {
 	time(&current_time);
 	if (mybmm_check_state(conf,MYBMM_CHARGING)) {
 		/* If battery temp is <= 0, stop charging immediately */
+		dprintf(1,"battery_temp: %2.1f\n", conf->battery_temp);
 		if (conf->battery_temp <= 0.0) {
 			charge_stop(conf,1);
 			return;
@@ -134,15 +141,24 @@ void charge_check(mybmm_config_t *conf) {
 
 		/* CC */
 		if (conf->charge_mode == 1) {
-			dprintf(1,"battery_amps: %.1f, charge_amps: %.1f, battery_voltage: %.1f, charge_target_voltage: %.1f, charge_voltage: %.1f, charge_max_voltage: %.1f\n", conf->battery_amps,conf->charge_amps,conf->battery_voltage,conf->charge_target_voltage,conf->charge_voltage,conf->charge_max_voltage);
+			float battery_amps;
 
+			battery_amps = conf->battery_amps * -1;;
+			dprintf(1,"battery_voltage: %2.1f, charge_target_voltage: %2.1f, pack_cell_max: %.3f, cell_max: %.3f\n",
+				conf->battery_voltage, conf->charge_target_voltage, conf->pack_cell_max, conf->cell_max);
+			dprintf(1,"battery_amps: %.1f, charge_amps: %.1f, frequency: %2.1f, charge_voltage: %.1f, charge_max_voltage: %.1f\n",
+				battery_amps,conf->charge_amps,conf->frequency,conf->charge_voltage,conf->charge_max_voltage);
 			if (conf->battery_voltage > conf->charge_target_voltage || conf->pack_cell_max >= conf->cell_max) {
 				time(&conf->cv_start_time);
 				conf->charge_mode = 2;
 				conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
 				lprintf(0,"*** STARTING CV CHARGE ***\n");
-			} else if (conf->battery_amps < conf->charge_amps && conf->charge_voltage < conf->charge_max_voltage) {
+			} else if ((battery_amps < conf->charge_amps) && (conf->frequency > 60.0) && (conf->charge_voltage < conf->charge_max_voltage)) {
 				conf->charge_voltage += 0.1;
+				if (conf->charge_voltage > conf->charge_max_voltage) {
+					log_write(LOG_ERROR,"charge_voltage > charge_max_voltage!!!\n");
+					conf->charge_voltage = conf->charge_max_voltage;
+				}
 			}
 
 		/* CV */

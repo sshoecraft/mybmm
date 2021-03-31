@@ -23,7 +23,7 @@ static int serial_init(mybmm_config_t *conf) {
 static void *serial_new(mybmm_config_t *conf, ...) {
 	serial_session_t *s;
 	char device[MYBMM_TARGET_LEN+1],*p;
-	int baud,parity,stop;
+	int baud,data,parity,stop;
 	va_list(ap);
 	char *target;
 
@@ -41,9 +41,10 @@ static void *serial_new(mybmm_config_t *conf, ...) {
 	}
 	device[0] = 0;
 	strncat(device,target,MYBMM_TARGET_LEN);
-	stop=8;
-	parity=1;
-	dprintf(1,"baud: %d, stop: %d, parity: %d\n", baud, stop, parity);
+	data=8;
+	parity=0;
+	stop=1;
+	dprintf(1,"baud: %d, data bits: %d, parity: %c, stop: %d\n", baud, data, (parity ? "Y" : "N"), stop);
 
 	s = calloc(1,sizeof(*s));
 	if (!s) {
@@ -53,12 +54,14 @@ static void *serial_new(mybmm_config_t *conf, ...) {
 	s->fd = -1;
 	strcpy(s->device,device);
 	s->speed = baud;
-	s->stop = stop;
+	s->data = data;
 	s->parity = parity;
+	s->stop = stop;
 
 	return s;
 }
 
+#if 0
 static int set_interface_attribs (int fd, int speed, int data, int parity, int stop, int vmin, int vtime) {
         struct termios tty;
 
@@ -113,6 +116,59 @@ static int set_interface_attribs (int fd, int speed, int data, int parity, int s
         }
         return 0;
 }
+#else
+static int set_interface_attribs (int fd, int speed, int data, int parity, int stop, int vmin, int vtime) {
+	struct termios options;
+	int rate;
+
+	// don't block
+	fcntl(fd, F_SETFL, FNDELAY);
+
+	// get current device options
+	tcgetattr(fd, &options);
+
+	// set the transport port in RAW Mode (non cooked)
+	options.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+	options.c_cflag |= (CLOCAL | CREAD);
+	options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+	options.c_oflag &= ~OPOST;
+	options.c_cc[VMIN]  = 0;
+	options.c_cc[VTIME] = 5;
+
+	//set the right baud rate
+	dprintf(1,"speed: %d\n", speed);
+	switch(speed) {
+	 case 57600:    rate = B57600;   break;
+	 case 38400:    rate = B38400;   break;
+	 case 19200:    rate = B19200;   break;
+	 case 9600:     rate = B9600;    break;
+	 case 4800:     rate = B4800;    break;
+	 case 2400:     rate = B2400;    break;
+	 case 1200:     rate = B1200;    break;
+	 case 600:      rate = B600;      break;
+	 case 300:      rate = B300;      break;
+	 case 150:      rate = B150;      break;
+	 case 110:      rate = B110;      break;
+	 default:	rate = B9600;
+	}
+	cfsetispeed(&options, rate);
+	cfsetospeed(&options, rate);
+
+	// 8 bits, no parity, one stop bit
+	options.c_cflag &= ~PARENB;
+	options.c_cflag &= ~CSTOPB;
+	options.c_cflag &= ~CSIZE;
+	options.c_cflag |= CS8;
+
+	// no handshake
+	options.c_cflag &= ~CRTSCTS;
+
+	// set new parameter
+	tcsetattr(fd, TCSANOW, &options);
+
+	return 0;
+}
+#endif
 
 static int serial_open(void *handle) {
 	serial_session_t *s = handle;

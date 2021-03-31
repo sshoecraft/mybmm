@@ -45,6 +45,7 @@ int read_config(mybmm_config_t *conf) {
 		{ "mybmm", "discharge_voltage", "Discharge Voltage", DATA_TYPE_FLOAT, &conf->user_discharge_voltage, 0, "-1" },
 		{ "mybmm", "discharge_amps", "Discharge Current", DATA_TYPE_FLOAT, &conf->user_discharge_amps, 0, "-1" },
 		{ "mybmm", "charge_max_voltage", "Max Charge Voltage", DATA_TYPE_FLOAT, &conf->user_charge_max_voltage, 0, "-1" },
+		{ "mybmm", "charge_at_max", "Always charge at max voltage", DATA_TYPE_LOGICAL, &conf->charge_at_max, 0, "N" },
 		{ "mybmm", "soc", "Force State of Charge", DATA_TYPE_FLOAT, &conf->user_soc, 0, "-1.0" },
 		{ "mybmm", "use_pack_voltage", "Use voltage from packs, if available", DATA_TYPE_LOGICAL, &conf->use_packv, 0, "0" },
 		CFG_PROCTAB_END
@@ -82,6 +83,7 @@ int read_config(mybmm_config_t *conf) {
 
 
 	/* Init battery config */
+	conf->battery_temp = 25;
 	if (battery_init(conf)) return 1;
 
 	/* Init inverter */

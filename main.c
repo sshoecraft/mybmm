@@ -195,8 +195,9 @@ int main(int argc, char **argv) {
 	startup = 1;
 	repcap = 0;
 
+	charge_start(conf,1);
+
 	while(1) {
-		dprintf(1,"startup: %d\n", startup);
 		if (reconf) {
 			dprintf(1,"calling reconfig...\n");
 			reconfig(conf);
@@ -317,6 +318,8 @@ int main(int argc, char **argv) {
 			repcap = 0;
 		}
 
+		dprintf(1,"packs_reported: %d, pack_temp_total: %2.1f, inv_reported: %d, inv->battery_temp: %2.1f\n",
+			packs_reported, pack_temp_total, inv_reported, inv->battery_temp);
 		conf->battery_temp = packs_reported ? (pack_temp_total / packs_reported) : (inv_reported ? inv->battery_temp : 25.0);
 		if (packs_reported && (conf->use_packv || !inv_reported)) {
 			conf->battery_voltage = pack_voltage_total / packs_reported;
@@ -337,43 +340,48 @@ int main(int argc, char **argv) {
 		conf->battery_voltage = conf->tvolt;
 #endif
 
-        conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+#if 0
+		conf->charge_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
 
-        dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
-        conf->discharge_voltage = conf->user_discharge_voltage < 0.0 ? conf->cell_low * conf->cells : conf->user_discharge_voltage;
-        dprintf(2,"conf->e_rate: %f, conf->capacity: %f\n", conf->e_rate, conf->capacity);
-        conf->discharge_amps = conf->user_discharge_amps < 0.0 ? conf->e_rate * conf->capacity : conf->user_discharge_amps;
-        lprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
+		dprintf(2,"user_discharge_voltage: %.1f, user_discharge_amps: %.1f\n", conf->user_discharge_voltage, conf->user_discharge_amps);
+		conf->discharge_voltage = conf->user_discharge_voltage < 0.0 ? conf->cell_low * conf->cells : conf->user_discharge_voltage;
+		dprintf(2,"conf->e_rate: %f, conf->capacity: %f\n", conf->e_rate, conf->capacity);
+		conf->discharge_amps = conf->user_discharge_amps < 0.0 ? conf->e_rate * conf->capacity : conf->user_discharge_amps;
+		lprintf(0,"Discharge voltage: %.1f, Discharge amps: %.1f\n", conf->discharge_voltage, conf->discharge_amps);
 
-        dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
-        conf->charge_voltage = conf->charge_target_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
-        dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
-        conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
-        lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
-
+		dprintf(2,"user_charge_voltage: %.1f, user_charge_amps: %.1f\n", conf->user_charge_voltage, conf->user_charge_amps);
+		conf->charge_voltage = conf->charge_target_voltage = conf->user_charge_voltage < 0.0 ? conf->cell_high * conf->cells : conf->user_charge_voltage;
+		dprintf(2,"conf->c_rate: %f, conf->capacity: %f\n", conf->c_rate, conf->capacity);
+		conf->charge_amps = conf->user_charge_amps < 0.0 ? conf->c_rate * conf->capacity : conf->user_charge_amps;
+		lprintf(0,"Charge voltage: %.1f, Charge amps: %.1f\n", conf->charge_voltage, conf->charge_amps);
 
 		lprintf(0,"Battery: voltage: %.1f, current: %.1f, temp: %.1f\n", conf->battery_voltage, conf->battery_amps, conf->battery_temp);
+#endif
 
-		conf->soc = conf->user_soc < 0.0 ? ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_voltage - conf->discharge_voltage) ) * 100.0 : conf->user_soc;
+		conf->soc = conf->user_soc < 0.0 ? ( ( conf->battery_voltage - conf->discharge_voltage) / (conf->charge_target_voltage - conf->discharge_voltage) ) * 100.0 : conf->user_soc;
 		lprintf(0,"SoC: %.1f\n", conf->soc);
 		conf->soh = 100.0;
 
 		charge_check(conf);
 
 		/* Update inverter */
+		dprintf(2,"startup: %d\n", startup);
 		if (inv_reported) {
-			if (startup) {
+			if (startup == 1) {
+				charge_stop(conf,0);
 				conf->charge_amps = 0.1;
 				conf->soc = 99.9;
-#if 0
-			} else {
-				conf->charge_amps = 120.0;
-				conf->discharge_amps = 500.0;
-#endif
 			}
 			inverter_write(conf->inverter);
 		}
-		startup = 0;
+		if (startup) {
+			startup++;
+			if (startup == 3) {
+				dprintf(1,"****** SOC: %.1f\n", conf->soc);
+				if (conf->soc < 95.0) charge_start(conf,1);
+				startup = 0;
+			}
+		}
 
 		/* Get ending time */
 		time(&end);
