@@ -1,3 +1,1 @@
-
-
-Work in progress.  This system will manage my BMSes and update my Sunny Island.
+This project has been replaced by SolarDirector
